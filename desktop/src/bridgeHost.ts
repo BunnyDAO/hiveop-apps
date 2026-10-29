@@ -8,6 +8,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { countChildPtys } from './agentCount';
 import { BRIDGE_ENTRY_SOURCE } from './bridgeEntry';
+import { nodeShim } from './nodeShim';
 import { installBridge, readCurrent, type InstallerDeps } from './bridgeInstaller';
 import { createSupervisor, type BridgeState, type Child, type Discovery } from './bridgeSupervisor';
 import { createTokenStore, isConnectToken } from './bridgeToken';
@@ -152,12 +153,21 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     if (!cur || !token) throw new Error('bridge not installed or not paired');
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
     fs.writeFileSync(entryFile, BRIDGE_ENTRY_SOURCE);
+    const shim = nodeShim(process.platform, process.execPath);
+    const shimFile = path.join(bridgeRoot, shim.fileName);
+    fs.writeFileSync(shimFile, shim.content, { mode: shim.mode });
+    fs.chmodSync(shimFile, shim.mode);
+    const npm = readCurrent(npmRoot);
     const childEnv: NodeJS.ProcessEnv = {
       ...env,
+      // Test seam: run the bridge (and so everything it writes) under a scratch home.
+      ...(env.HIVEOP_BRIDGE_HOME ? { HOME: env.HIVEOP_BRIDGE_HOME, USERPROFILE: env.HIVEOP_BRIDGE_HOME } : {}),
       ELECTRON_RUN_AS_NODE: '1',
       WENRWA_BRIDGE_MANAGED: '1',
       WENRWA_BRIDGE_TOKEN: token,
       WENRWA_BRIDGE_LOG: logFile,
+      WENRWA_NODE_COMMAND: shimFile, // the runtime contract: MCP + hook commands run through this
+      ...(npm ? { WENRWA_NPM_CLI: path.join(npm.dir, 'bin', 'npm-cli.js') } : {}),
       WENRWA_BRIDGE_ORIGIN: o.siteOrigin,
       [process.platform === 'win32' ? 'Path' : 'PATH']: bridgePath({
         toolsDir: path.join(toolsDir, 'bin'),

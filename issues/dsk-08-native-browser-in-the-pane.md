@@ -2,7 +2,7 @@
 id: dsk-08
 title: native browser in the pane
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-04]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps + wenrwa-arena

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentsLine, bridgeStatusLine } from './trayStatus';
+import { agentsLine, bridgeStatusLine, updateLine } from './trayStatus';
 
 describe('tray status lines', () => {
   it('names each bridge state in few words', () => {
@@ -15,4 +15,9 @@ describe('tray status lines', () => {
     expect(agentsLine(1)).toBe('1 local agent');
     expect(agentsLine(3)).toBe('3 local agents');
   });
+});
+
+describe('updateLine (dsk-11)', () => {
+  it('says nothing without a waiting version', () => expect(updateLine(null)).toBeNull());
+  it('says an update is ready while it waits for agents', () => expect(updateLine('1.1.0')).toBe('Bridge update ready'));
 });

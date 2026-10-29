@@ -220,3 +220,37 @@ describe('bridge supervisor', () => {
     expect(h.states.map((s) => s.kind)).toEqual(['starting', 'running']);
   });
 });
+
+describe('bridge supervisor — restart and recheck (dsk-11/12)', () => {
+  it('restart kills our bridge and starts a fresh one without backoff', async () => {
+    const h = harness();
+    await h.sup.start();
+    h.setDiscovery({ managed: true, version: '1.0.0' });
+    await h.advance(1000);
+    h.setDiscovery(null);
+    h.sup.restart();
+    expect(h.children[0].killed).toBe(1);
+    h.children[0].exit(null);
+    await h.flush();
+    expect(h.children).toHaveLength(2);
+    expect(h.sup.state()).toEqual({ kind: 'starting' });
+  });
+
+  it('restart does nothing for a CLI bridge', async () => {
+    const h = harness();
+    h.setDiscovery({ managed: false });
+    await h.sup.start();
+    h.sup.restart();
+    expect(h.children).toHaveLength(0);
+  });
+
+  it('recheck after the CLI bridge stopped starts the managed one at once', async () => {
+    const h = harness();
+    h.setDiscovery({ managed: false });
+    await h.sup.start();
+    h.setDiscovery(null);
+    await h.sup.recheck();
+    expect(h.children).toHaveLength(1);
+    expect(h.sup.state()).toEqual({ kind: 'starting' });
+  });
+});

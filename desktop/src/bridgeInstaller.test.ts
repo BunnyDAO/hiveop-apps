@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { installBridge, readCurrent, verifyIntegrity, type InstallerDeps } from './bridgeInstaller';
+import { installBridge, readBad, readCurrent, rollbackCurrent, verifyIntegrity, type InstallerDeps } from './bridgeInstaller';
 
 const sri = (b: Buffer, algo = 'sha512') => `${algo}-${createHash(algo).update(b).digest('base64')}`;
 
@@ -143,5 +143,53 @@ describe('installBridge', () => {
     const res = await installBridge(root, { ...r.deps, registryMeta: async () => { throw new Error('unused'); } }, { tarball: tgz });
     expect(res).toEqual({ status: 'installed', version: '0.9.5-dev' });
     expect(readCurrent(root)?.version).toBe('0.9.5-dev');
+  });
+});
+
+describe('rollback and bad versions (dsk-11)', () => {
+  it('rolls back to the previous version and remembers the bad one', async () => {
+    const reg = fakeRegistry({ '1.0.0': v('1.0.0'), '2.0.0': v('2.0.0') });
+    reg.setLatest('1.0.0');
+    await installBridge(root, reg.deps);
+    reg.setLatest('2.0.0');
+    await installBridge(root, reg.deps);
+    expect(readCurrent(root)?.version).toBe('2.0.0');
+    expect(rollbackCurrent(root)).toEqual({ from: '2.0.0', to: '1.0.0' });
+    expect(readCurrent(root)?.version).toBe('1.0.0');
+    expect(readBad(root)).toEqual(['2.0.0']);
+  });
+
+  it('does not roll back when there is no previous version', async () => {
+    const reg = fakeRegistry({ '1.0.0': v('1.0.0') });
+    await installBridge(root, reg.deps);
+    expect(rollbackCurrent(root)).toBeNull();
+    expect(readCurrent(root)?.version).toBe('1.0.0');
+    expect(readBad(root)).toEqual([]);
+  });
+
+  it('never installs a version marked bad, and does not even download it', async () => {
+    const reg = fakeRegistry({ '1.0.0': v('1.0.0'), '2.0.0': v('2.0.0') });
+    reg.setLatest('1.0.0');
+    await installBridge(root, reg.deps);
+    reg.setLatest('2.0.0');
+    await installBridge(root, reg.deps);
+    rollbackCurrent(root);
+    const downloads = reg.calls.download;
+    const res = await installBridge(root, reg.deps);
+    expect(res).toEqual({ status: 'skipped', version: '2.0.0' });
+    expect(reg.calls.download).toBe(downloads);
+    expect(readCurrent(root)?.version).toBe('1.0.0');
+  });
+
+  it('a later good version is still installed after a bad one', async () => {
+    const reg = fakeRegistry({ '1.0.0': v('1.0.0'), '2.0.0': v('2.0.0'), '2.0.1': v('2.0.1') });
+    reg.setLatest('1.0.0');
+    await installBridge(root, reg.deps);
+    reg.setLatest('2.0.0');
+    await installBridge(root, reg.deps);
+    rollbackCurrent(root);
+    reg.setLatest('2.0.1');
+    expect((await installBridge(root, reg.deps)).status).toBe('installed');
+    expect(readCurrent(root)?.version).toBe('2.0.1');
   });
 });

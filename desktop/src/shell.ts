@@ -7,7 +7,7 @@ import type { AuthBounce } from './authBounce';
 import { deepLinkFromArgv, parseAuthLink, parseDeepLink, toSiteUrl } from './deepLink';
 import { parsePrefs, serializePrefs, type Prefs } from './prefs';
 import { quitPrompt } from './quitGuard';
-import { agentsLine, bridgeStatusLine } from './trayStatus';
+import { agentsLine, bridgeStatusLine, updateLine } from './trayStatus';
 import type { BridgeState } from './bridgeSupervisor';
 import { updateMenuItem, type UpdateState } from './shellUpdater';
 
@@ -52,6 +52,13 @@ export function setUpdateActions(a: typeof updateActions): void {
 }
 export function setUpdateState(s: UpdateState): void {
   updateState = s;
+  if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
+}
+
+/** A downloaded bridge update waiting for the agents to stop (dsk-11). */
+let bridgeUpdatePending: string | null = null;
+export function setBridgeUpdatePending(v: string | null): void {
+  bridgeUpdatePending = v;
   if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
 }
 
@@ -142,6 +149,7 @@ function buildMenu(prefs: Prefs): Menu {
     ...updRow,
     { label: bridgeStatusLine(trayBridge.state), enabled: false },
     { label: agentsLine(trayBridge.agents), enabled: false },
+    ...(updateLine(bridgeUpdatePending) ? [{ label: updateLine(bridgeUpdatePending) as string, enabled: false }] : []),
     { type: 'separator' },
     {
       label: 'Start at login',

@@ -42,6 +42,10 @@ export interface Supervisor {
   start(): Promise<void>;
   /** The stored token changed (paired, re-paired). */
   tokenChanged(): Promise<void>;
+  /** Stop our own bridge and start it again (a new version took over). No-op without a bridge of ours. */
+  restart(): void;
+  /** Look at the port again now (a CLI bridge was just stopped). */
+  recheck(): Promise<void>;
   /** Stop our own bridge, if any. A CLI bridge is left alone. */
   stop(): void;
   onState(cb: (s: BridgeState) => void): () => void;
@@ -198,6 +202,17 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         clearTimers();
         await settle();
       }
+    },
+    restart() {
+      if (stopped || !child) return;
+      restarting = true;
+      child.kill();
+    },
+    async recheck() {
+      if (stopped || child) return;
+      gen++;
+      clearTimers();
+      await settle();
     },
     stop() {
       stopped = true;

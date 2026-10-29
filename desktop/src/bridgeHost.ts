@@ -2,6 +2,7 @@
 // live in bridgeSupervisor / bridgeInstaller / loginPath / bridgeToken, which are
 // tested without Electron. This file wires them to the OS.
 import { app, ipcMain, safeStorage, type WebContents } from 'electron';
+import { createHash } from 'node:crypto';
 import { execFile, spawn as spawnProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -9,7 +10,8 @@ import path from 'node:path';
 import { countChildPtys } from './agentCount';
 import { BRIDGE_ENTRY_SOURCE } from './bridgeEntry';
 import { nodeShim } from './nodeShim';
-import { installBridge, readCurrent, type InstallerDeps } from './bridgeInstaller';
+import { installBridge, readCurrent, rollbackCurrent, type InstallerDeps } from './bridgeInstaller';
+import { createUpdater, earlyExitRollback } from './bridgeUpdater';
 import { createSupervisor, type BridgeState, type Child, type Discovery } from './bridgeSupervisor';
 import { createTokenStore, isConnectToken } from './bridgeToken';
 import { retryDelayMs } from './backoff';
@@ -28,6 +30,8 @@ export interface BridgeHostOptions {
   siteOrigin: string;
   getWindow(): { webContents: WebContents; isDestroyed(): boolean } | null;
   onChange(): void;
+  /** A downloaded bridge version is waiting for the agents to stop; null when none (dsk-11). */
+  onUpdatePending?(version: string | null): void;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -85,6 +89,12 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     decrypt: (b) => safeStorage.decryptString(b),
   });
   const tarballOverride = env.HIVEOP_BRIDGE_TARBALL || undefined;
+  // Test seam: the update check sees this local tarball (version in HIVEOP_UPDATE_VERSION) as the registry's latest.
+  const updateTarball = env.HIVEOP_UPDATE_TARBALL || undefined;
+  const updateVersion = env.HIVEOP_UPDATE_VERSION || undefined;
+  const CHECK_EVERY_MS = Number(env.HIVEOP_UPDATE_EVERY_MS) || 3_600_000;
+  const MIN_UPTIME_MS = 20_000; // a new version that exits sooner than this is rolled back
+  let runningVersion: string | undefined; // the managed bridge process we last started
 
   let loginPath: string | undefined;
   let installNote: BridgeState | null = null; // shown instead of the supervisor's state while installing / install failed
@@ -176,6 +186,9 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
         delimiter: path.delimiter,
       }),
     };
+    runningVersion = cur.version;
+    const startedAt = Date.now();
+    let stoppedByUs = false;
     const p = spawnProcess(process.execPath, [entryFile, path.join(cur.dir, 'dist', 'index.js'), 'bridge', '--managed', '--port', String(port), '--origin', o.siteOrigin], {
       env: childEnv,
       stdio: 'ignore',
@@ -185,11 +198,20 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     return {
       pid: p.pid,
       kill: () => {
+        stoppedByUs = true;
         p.kill(); // exact pid only
       },
       onExit: (cb) => {
-        p.once('exit', (code) => cb(code));
-        p.once('error', () => cb(null));
+        const done = (code: number | null): void => {
+          runningVersion = undefined;
+          // dsk-11: a version that dies right after starting is rolled back and never retried.
+          if (earlyExitRollback({ startedAt, now: Date.now(), minUptimeMs: MIN_UPTIME_MS, stoppedByUs, code })) {
+            rollbackCurrent(bridgeRoot);
+          }
+          cb(code);
+        };
+        p.once('exit', done);
+        p.once('error', () => done(null));
       },
     };
   }
@@ -207,6 +229,36 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     pollMs: 1500,
     startTimeoutMs: 30_000,
   });
+
+  const updater = createUpdater({
+    check: async () => {
+      if (!runningVersion) throw new Error('no managed bridge to update'); // a CLI bridge is not ours to update
+      if (updateTarball && updateVersion) {
+        const bytes = fs.readFileSync(updateTarball);
+        const fake: InstallerDeps = {
+          ...installerDeps,
+          registryMeta: async () => ({ version: updateVersion, tarball: 'https://seam.invalid/x.tgz', integrity: `sha512-${createHash('sha512').update(bytes).digest('base64')}` }),
+          download: async () => bytes,
+        };
+        return installBridge(bridgeRoot, fake);
+      }
+      return installBridge(bridgeRoot, installerDeps);
+    },
+    current: () => readCurrent(bridgeRoot)?.version,
+    running: () => runningVersion,
+    agents: () => supervisor.localAgents(),
+    restart: () => supervisor.restart(),
+    onPending: (v) => o.onUpdatePending?.(v),
+    schedule: (fn, ms) => {
+      const t = setTimeout(fn, ms);
+      return () => clearTimeout(t);
+    },
+    checkEveryMs: CHECK_EVERY_MS,
+    firstCheckMs: Math.min(CHECK_EVERY_MS, 60_000),
+    pollMs: 5000,
+  });
+  // A swap can become possible whenever the bridge state changes (an agent ended, a restart landed).
+  supervisor.onState(() => updater.evaluate());
 
   const view = (): BridgeView => {
     const s = installNote ?? supervisor.state();
@@ -245,6 +297,7 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     await prepare();
     if (installNote) return;
     await supervisor.start();
+    if (!tarballOverride || updateTarball) updater.start();
   }
 
   ipcMain.handle(IPC_PAIR, async (event, token: unknown) => {
@@ -268,12 +321,12 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
           /* inherited PATH only */
         }
       }
-      await prepare();
-      if (!installNote) await supervisor.start();
+      await begin();
       changed();
     },
     stop() {
       if (installRetry) clearTimeout(installRetry);
+      updater.stop();
       supervisor.stop();
     },
     view,

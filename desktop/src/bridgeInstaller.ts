@@ -25,6 +25,8 @@ export interface InstallerDeps {
 export type InstallResult =
   | { status: 'installed'; version: string }
   | { status: 'up-to-date'; version: string }
+  /** The registry's latest was marked bad by a rollback; it is not fetched again. */
+  | { status: 'skipped'; version: string }
   | { status: 'refused'; reason: 'integrity' | 'network' | 'install'; current?: string; detail?: string };
 
 export interface Current {
@@ -66,6 +68,34 @@ export function readCurrent(root: string): Current | null {
   return null;
 }
 
+/** Versions that crashed at start and were rolled back; never installed again. */
+export function readBad(root: string): string[] {
+  try {
+    return fs
+      .readFileSync(path.join(root, 'bad'), 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => SAFE_VERSION.test(l));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Make `previous` current again and mark the version we leave as bad. Null when
+ * there is nothing to go back to (the first install has no previous).
+ */
+export function rollbackCurrent(root: string): { from: string; to: string } | null {
+  const from = readPointer(root, 'current');
+  const to = readPointer(root, 'previous');
+  if (!from || !to || from === to || !complete(root, to)) return null;
+  fs.writeFileSync(path.join(root, 'bad'), [...new Set([...readBad(root), from])].join('\n'));
+  writePointer(root, 'current', to);
+  fs.rmSync(path.join(root, 'previous'), { force: true });
+  fs.rmSync(path.join(versionsDir(root), from), { recursive: true, force: true });
+  return { from, to };
+}
+
 function writePointer(root: string, name: string, value: string): void {
   const tmp = path.join(root, `${name}.${randomBytes(4).toString('hex')}.tmp`);
   fs.writeFileSync(tmp, value);
@@ -105,6 +135,7 @@ export async function installBridge(
       meta = await deps.registryMeta();
       if (!SAFE_VERSION.test(meta.version)) return refuse('network', 'bad version from registry');
       if (cur === meta.version) return { status: 'up-to-date', version: cur };
+      if (readBad(root).includes(meta.version)) return { status: 'skipped', version: meta.version };
       bytes = await deps.download(meta.tarball);
     } catch (e) {
       return refuse('network', (e as Error).message);

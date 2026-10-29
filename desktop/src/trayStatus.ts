@@ -18,3 +18,8 @@ export function bridgeStatusLine(s: BridgeState): string {
 export function agentsLine(n: number): string {
   return n <= 0 ? 'No local agents' : `${n} local agent${n === 1 ? '' : 's'}`;
 }
+
+/** A downloaded bridge version is waiting for the agents to stop (dsk-11). */
+export function updateLine(pending: string | null): string | null {
+  return pending ? 'Bridge update ready' : null;
+}

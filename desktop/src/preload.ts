@@ -1,4 +1,4 @@
-import { contextBridge } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 import { buildBridge, isSiteOrigin } from './bridge';
 
 // Sandboxed preloads cannot require sibling files, so build.mjs bundles this
@@ -10,5 +10,15 @@ function arg(name: string): string {
 
 // Top frame only, and only on the configured site: any other origin gets nothing.
 if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-site-origin'))) {
-  contextBridge.exposeInMainWorld('hiveopDesktop', buildBridge(arg('hiveop-version')));
+  contextBridge.exposeInMainWorld('hiveopDesktop', buildBridge(arg('hiveop-version'), {
+      onOpenTab: (cb) => {
+        const listener = (_e: unknown, url: unknown, from: unknown): void => {
+          if (typeof url === 'string' && typeof from === 'number') cb(url, from);
+        };
+        ipcRenderer.on('hiveop:browser-open-tab', listener);
+        return () => {
+          ipcRenderer.removeListener('hiveop:browser-open-tab', listener);
+        };
+      },
+    }));
 }

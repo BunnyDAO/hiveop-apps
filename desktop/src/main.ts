@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
 import { decide, type Decision } from './navPolicy';
+import { installNativeBrowser } from './nativeBrowser';
 import { resolveSiteUrl, userAgentFor } from './site';
 
 const APP_ID = 'io.hiveop.desktop';
@@ -90,12 +91,13 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      webviewTag: false,
+      webviewTag: true, // native browser views only; nativeBrowser.ts vets every attach
       preload: path.join(__dirname, 'preload.js'),
       additionalArguments: [`--hiveop-site-origin=${site.origin}`, `--hiveop-version=${app.getVersion()}`],
     },
   });
   const wc = w.webContents;
+  installNativeBrowser(w, site.origin);
 
   wc.setWindowOpenHandler(({ url }) => {
     const d = route(url);

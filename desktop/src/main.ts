@@ -16,7 +16,8 @@ const SMOKE = process.env.HIVEOP_SMOKE === '1'; // hidden window for automated c
 
 const site = resolveSiteUrl(process.env);
 // Backend that starts Google sign-in (dsk-02). Override for staging.
-const OAUTH_API = process.env.HIVEOP_OAUTH_API || 'https://api.hiveop.io/api/v1';
+// Same host the site's own Google button uses (NEXT_PUBLIC_API_URL on prod).
+const OAUTH_API = process.env.HIVEOP_OAUTH_API || 'https://api.wenrwa.com/api/v1';
 const authBounce = createAuthBounce({
   oauthApi: OAUTH_API,
   siteOrigin: site.origin,

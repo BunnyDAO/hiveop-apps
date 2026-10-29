@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { buildBridge, isSiteOrigin } from './bridge';
+import { withManagedBridge } from './managedBridgeApi';
 
 // Sandboxed preloads cannot require sibling files, so build.mjs bundles this
 // into dist/preload.js. main.ts passes the site origin and app version as args.
@@ -10,7 +11,7 @@ function arg(name: string): string {
 
 // Top frame only, and only on the configured site: any other origin gets nothing.
 if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-site-origin'))) {
-  contextBridge.exposeInMainWorld('hiveopDesktop', buildBridge(arg('hiveop-version'), {
+  contextBridge.exposeInMainWorld('hiveopDesktop', withManagedBridge(buildBridge(arg('hiveop-version'), {
       onOpenTab: (cb) => {
         const listener = (_e: unknown, url: unknown, from: unknown): void => {
           if (typeof url === 'string' && typeof from === 'number') cb(url, from);
@@ -31,6 +32,17 @@ if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-si
         ipcRenderer.on('hiveop:auth-handoff', listener);
         return () => {
           ipcRenderer.removeListener('hiveop:auth-handoff', listener);
+        };
+      },
+    }), {
+      // dsk-10 — managed bridge (capability `managed-bridge`). Channel names mirror bridgeHost.ts.
+      pair: (token) => ipcRenderer.invoke('hiveop:bridge-pair', token) as Promise<boolean>,
+      state: () => ipcRenderer.invoke('hiveop:bridge-state'),
+      onState: (cb) => {
+        const listener = (_e: unknown, v: unknown): void => cb(v);
+        ipcRenderer.on('hiveop:bridge-state-changed', listener);
+        return () => {
+          ipcRenderer.removeListener('hiveop:bridge-state-changed', listener);
         };
       },
     }));

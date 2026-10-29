@@ -7,6 +7,8 @@ import type { AuthBounce } from './authBounce';
 import { deepLinkFromArgv, parseAuthLink, parseDeepLink, toSiteUrl } from './deepLink';
 import { parsePrefs, serializePrefs, type Prefs } from './prefs';
 import { quitPrompt } from './quitGuard';
+import { agentsLine, bridgeStatusLine } from './trayStatus';
+import type { BridgeState } from './bridgeSupervisor';
 
 const PROTOCOL = 'hiveop';
 
@@ -32,6 +34,13 @@ let pendingLink: string | undefined;
 let localAgentCount: () => number = () => 0;
 export function setLocalAgentCounter(fn: () => number): void {
   localAgentCount = fn;
+}
+
+/** Bridge status shown in the tray menu (dsk-10). */
+let trayBridge: { state: BridgeState; agents: number } = { state: { kind: 'none' }, agents: 0 };
+export function setBridgeStatus(state: BridgeState, agents: number): void {
+  trayBridge = { state, agents };
+  if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
 }
 
 const prefsFile = (): string => path.join(app.getPath('userData'), 'prefs.json');
@@ -103,6 +112,10 @@ export function requestQuit(): void {
 function buildMenu(prefs: Prefs): Menu {
   return Menu.buildFromTemplate([
     { label: 'Open HiveOp', click: () => showMainWindow() },
+    { type: 'separator' },
+    { label: bridgeStatusLine(trayBridge.state), enabled: false },
+    { label: agentsLine(trayBridge.agents), enabled: false },
+    { type: 'separator' },
     {
       label: 'Start at login',
       type: 'checkbox',

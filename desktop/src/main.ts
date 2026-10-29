@@ -8,7 +8,8 @@ import { resolveSiteUrl, userAgentFor } from './site';
 import { openAppPopup } from './popup';
 import { createAuthBounce } from './authBounce';
 import { randomBytes } from 'node:crypto';
-import { attachWindow, installShell, startShell } from './shell';
+import { attachWindow, installShell, setBridgeStatus, setLocalAgentCounter, startShell } from './shell';
+import { createBridgeHost } from './bridgeHost';
 
 const APP_ID = 'io.hiveop.desktop';
 const RETRY_SCHEME = 'hiveop-retry:';
@@ -163,6 +164,15 @@ function createWindow(): BrowserWindow {
   return w;
 }
 
+const bridgeHost = createBridgeHost({
+  siteOrigin: site.origin,
+  getWindow: () => (win && !win.isDestroyed() ? win : null),
+  onChange: () => {
+    const v = bridgeHost.view();
+    setBridgeStatus(v, v.agents);
+  },
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -180,5 +190,8 @@ if (!app.requestSingleInstanceLock()) {
     if (SMOKE) app.dock?.hide();
     win = createWindow();
     startShell();
+    setLocalAgentCounter(() => bridgeHost.localAgents());
+    void bridgeHost.start();
   });
+  app.on('will-quit', () => bridgeHost.stop()); // stops only the bridge this app started
 }

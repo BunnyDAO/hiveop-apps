@@ -2,7 +2,7 @@
 id: dsk-05
 title: tray close quit login deeplinks
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-01]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps

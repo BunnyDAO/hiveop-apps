@@ -2,7 +2,7 @@
 id: dsk-06
 title: payment and github app windows
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-01]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps

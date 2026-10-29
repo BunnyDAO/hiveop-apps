@@ -2,7 +2,7 @@
 id: dsk-10
 title: managed bridge and pairing
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-03, dsk-04, dsk-05]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps + wenrwa-arena (+ backend if a device-token mint is missing)

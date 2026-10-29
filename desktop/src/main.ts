@@ -5,6 +5,7 @@ import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
 import { decide, type Decision } from './navPolicy';
 import { installNativeBrowser } from './nativeBrowser';
 import { resolveSiteUrl, userAgentFor } from './site';
+import { openAppPopup } from './popup';
 import { attachWindow, installShell, startShell } from './shell';
 
 const APP_ID = 'io.hiveop.desktop';
@@ -27,8 +28,11 @@ let failedSinceStart = false;
 /** Act on a decision for a URL the page wants to show. Returns true if it stays in this window. */
 function route(url: string): Decision {
   const d = decide(url, { siteOrigin: site.origin });
-  // dsk-06 wires app-popup; until then it opens in the system browser.
-  if ((d === 'system-browser' || d === 'app-popup') && /^https?:/i.test(url)) void shell.openExternal(url);
+  if (d === 'app-popup') {
+    openAppPopup({ siteOrigin: site.origin, getMain: () => (win && !win.isDestroyed() ? win : null), smoke: SMOKE }, url);
+  } else if (d === 'system-browser' && /^https?:/i.test(url)) {
+    void shell.openExternal(url);
+  }
   return d;
 }
 

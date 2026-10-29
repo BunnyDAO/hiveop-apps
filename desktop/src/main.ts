@@ -5,6 +5,7 @@ import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
 import { decide, type Decision } from './navPolicy';
 import { installNativeBrowser } from './nativeBrowser';
 import { resolveSiteUrl, userAgentFor } from './site';
+import { attachWindow, installShell, startShell } from './shell';
 
 const APP_ID = 'io.hiveop.desktop';
 const RETRY_SCHEME = 'hiveop-retry:';
@@ -136,6 +137,7 @@ function createWindow(): BrowserWindow {
     }
   });
 
+  attachWindow(w);
   w.on('closed', () => {
     clearRetry();
     if (win === w) win = null;
@@ -147,18 +149,18 @@ function createWindow(): BrowserWindow {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (!win || SMOKE) return;
-    if (win.isMinimized()) win.restore();
-    win.show();
-    win.focus();
+  installShell({
+    siteOrigin: site.origin,
+    smoke: SMOKE,
+    getWindow: () => (win && !win.isDestroyed() ? win : null),
+    ensureWindow: () => {
+      if (!win || win.isDestroyed()) win = createWindow();
+      return win;
+    },
   });
   app.whenReady().then(() => {
     if (SMOKE) app.dock?.hide();
     win = createWindow();
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) win = createWindow();
-    });
+    startShell();
   });
-  app.on('window-all-closed', () => app.quit());
 }

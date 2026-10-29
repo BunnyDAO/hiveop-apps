@@ -1,0 +1,183 @@
+// Tray, close-to-tray, quit, login item and hiveop:// deep links (dsk-05).
+// Kept separate from main.ts: main only calls installShell() and attachWindow().
+import { app, BrowserWindow, dialog, Menu, nativeImage, Tray } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { deepLinkFromArgv, parseDeepLink, toSiteUrl } from './deepLink';
+import { parsePrefs, serializePrefs, type Prefs } from './prefs';
+import { quitPrompt } from './quitGuard';
+
+const PROTOCOL = 'hiveop';
+
+export interface ShellHost {
+  siteOrigin: string;
+  /** The main window, or null if none exists right now. */
+  getWindow(): BrowserWindow | null;
+  /** Create the main window if needed and return it. */
+  ensureWindow(): BrowserWindow;
+  /** Hidden-window automated checks: no tray, no login item, no protocol registration. */
+  smoke: boolean;
+}
+
+let quitting = false;
+let quitConfirmed = false;
+let tray: Tray | null = null;
+let host: ShellHost;
+let pendingLink: string | undefined;
+
+/** Running local agents. dsk-10 replaces this with the bridge supervisor's count. */
+let localAgentCount: () => number = () => 0;
+export function setLocalAgentCounter(fn: () => number): void {
+  localAgentCount = fn;
+}
+
+const prefsFile = (): string => path.join(app.getPath('userData'), 'prefs.json');
+
+function loadPrefs(): Prefs {
+  try {
+    return parsePrefs(fs.readFileSync(prefsFile(), 'utf8'));
+  } catch {
+    return parsePrefs(undefined);
+  }
+}
+
+function savePrefs(p: Prefs): void {
+  try {
+    fs.mkdirSync(path.dirname(prefsFile()), { recursive: true });
+    fs.writeFileSync(prefsFile(), serializePrefs(p));
+  } catch {
+    /* a failed write only loses the toggle */
+  }
+}
+
+function applyLoginItem(p: Prefs): void {
+  // Unpackaged dev runs would register the bare Electron binary as a login item.
+  if (host.smoke || !app.isPackaged) return;
+  app.setLoginItemSettings({ openAtLogin: p.startAtLogin });
+}
+
+export function showMainWindow(): BrowserWindow {
+  const w = host.ensureWindow();
+  if (w.isMinimized()) w.restore();
+  w.show();
+  w.focus();
+  return w;
+}
+
+/** Navigate the one window to a site path from a hiveop:// link; foreign links are ignored. */
+export function handleDeepLink(raw: string | undefined): void {
+  if (!raw) return;
+  const link = parseDeepLink(raw);
+  if (!link) return;
+  const url = toSiteUrl(link.path, host.siteOrigin);
+  if (host.smoke) {
+    const w = host.getWindow();
+    if (w) void w.loadURL(url);
+    return;
+  }
+  void showMainWindow().loadURL(url);
+}
+
+export function requestQuit(): void {
+  app.quit();
+}
+
+function buildMenu(prefs: Prefs): Menu {
+  return Menu.buildFromTemplate([
+    { label: 'Open HiveOp', click: () => showMainWindow() },
+    {
+      label: 'Start at login',
+      type: 'checkbox',
+      checked: prefs.startAtLogin,
+      click: (item) => {
+        const next = { startAtLogin: item.checked };
+        savePrefs(next);
+        applyLoginItem(next);
+      },
+    },
+    { type: 'separator' },
+    { label: 'Quit HiveOp', click: () => requestQuit() },
+  ]);
+}
+
+function createTray(prefs: Prefs): void {
+  const res = path.join(__dirname, '..', 'resources');
+  const img =
+    process.platform === 'darwin'
+      ? nativeImage.createFromPath(path.join(res, 'trayTemplate.png'))
+      : nativeImage.createFromPath(path.join(res, 'tray.png'));
+  if (process.platform === 'darwin') img.setTemplateImage(true);
+  tray = new Tray(img);
+  tray.setToolTip('HiveOp');
+  tray.setContextMenu(buildMenu(prefs));
+  tray.on('click', () => {
+    if (process.platform !== 'darwin') showMainWindow();
+  });
+}
+
+/** Closing the window hides it; only Quit really closes. */
+export function attachWindow(w: BrowserWindow): void {
+  w.on('close', (e) => {
+    if (quitting || host.smoke) return;
+    e.preventDefault();
+    w.hide();
+  });
+}
+
+/** Run once, before app is ready (macOS delivers open-url early). */
+export function installShell(h: ShellHost): void {
+  host = h;
+  if (!host.smoke) {
+    if (process.defaultApp && process.argv[1]) {
+      app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+    } else {
+      app.setAsDefaultProtocolClient(PROTOCOL);
+    }
+  }
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    if (app.isReady()) handleDeepLink(url);
+    else pendingLink = url;
+  });
+  pendingLink = deepLinkFromArgv(process.argv);
+
+  app.on('second-instance', (_e, argv) => {
+    const link = deepLinkFromArgv(argv);
+    if (link) handleDeepLink(link);
+    else if (!host.smoke) showMainWindow();
+  });
+
+  app.on('before-quit', (e) => {
+    if (quitting) return;
+    const prompt = quitConfirmed ? null : quitPrompt(localAgentCount());
+    if (prompt) {
+      e.preventDefault();
+      void dialog
+        .showMessageBox({ type: 'question', buttons: ['Quit', 'Cancel'], defaultId: 1, cancelId: 1, message: prompt })
+        .then((r) => {
+          if (r.response === 0) {
+            quitConfirmed = true;
+            app.quit();
+          }
+        });
+      return;
+    }
+    quitting = true;
+  });
+
+  app.on('activate', () => {
+    if (app.isReady()) showMainWindow();
+  });
+}
+
+/** After app is ready and the main window exists. */
+export function startShell(): void {
+  const prefs = loadPrefs();
+  if (!fs.existsSync(prefsFile())) savePrefs(prefs); // first run: persist the on-by-default choice
+  applyLoginItem(prefs);
+  if (!host.smoke) createTray(prefs);
+  if (pendingLink) {
+    handleDeepLink(pendingLink);
+    pendingLink = undefined;
+  }
+}

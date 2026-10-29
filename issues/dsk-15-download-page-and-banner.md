@@ -2,7 +2,7 @@
 id: dsk-15
 title: download page and banner
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-04, dsk-07]
 parent: docs/prd/desktop-app.md
 repo: wenrwa-arena

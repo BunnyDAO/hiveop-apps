@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { retryDelayMs } from './backoff';
+import { retryDelayMs, isLoadSuccess } from './backoff';
 
 describe('retryDelayMs', () => {
   it('doubles from 2s and caps at 30s', () => {
@@ -22,5 +22,17 @@ describe('isLoadFailure', () => {
     expect(isLoadFailure(-3, true, 'https://app.hiveop.io/', offline)).toBe(false);
     expect(isLoadFailure(-105, false, 'https://app.hiveop.io/', offline)).toBe(false);
     expect(isLoadFailure(-105, true, offline + '?next=2000', offline)).toBe(false);
+  });
+});
+
+describe('isLoadSuccess', () => {
+  it('counts a finished http load as success', () => {
+    expect(isLoadSuccess('https://app.hiveop.io/', false)).toBe(true);
+  });
+  it('ignores the finish Chromium reports after a failed load (its error page)', () => {
+    expect(isLoadSuccess('http://127.0.0.1:59871/', true)).toBe(false);
+  });
+  it('ignores our own offline page', () => {
+    expect(isLoadSuccess('file:///x/offline.html?next=2000', false)).toBe(false);
   });
 });

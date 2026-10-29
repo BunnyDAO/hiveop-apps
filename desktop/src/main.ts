@@ -1,7 +1,7 @@
 import { app, BrowserWindow, net, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { isLoadFailure, retryDelayMs } from './backoff';
+import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
 import { decide, type Decision } from './navPolicy';
 import { resolveSiteUrl, userAgentFor } from './site';
 
@@ -20,6 +20,7 @@ let win: BrowserWindow | null = null;
 let attempt = 0;
 let retryTimer: NodeJS.Timeout | null = null;
 let probing = false;
+let failedSinceStart = false;
 
 /** Act on a decision for a URL the page wants to show. Returns true if it stays in this window. */
 function route(url: string): Decision {
@@ -36,7 +37,7 @@ function clearRetry(): void {
 
 async function reachable(): Promise<boolean> {
   try {
-    const res = await net.fetch(site.url, { method: 'HEAD', redirect: 'manual' });
+    const res = await net.fetch(site.url, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(5000) });
     return res.status > 0;
   } catch {
     return false;
@@ -115,11 +116,17 @@ function createWindow(): BrowserWindow {
   wc.on('will-navigate', (e, url) => guard(e, url));
   wc.on('will-redirect', (e, url) => guard(e, url));
 
+  wc.on('did-start-loading', () => {
+    failedSinceStart = false;
+  });
   wc.on('did-fail-load', (_e, code, _desc, validatedURL, isMainFrame) => {
-    if (isLoadFailure(code, isMainFrame, validatedURL, offlineUrl)) showOffline();
+    if (isLoadFailure(code, isMainFrame, validatedURL, offlineUrl)) {
+      failedSinceStart = true;
+      showOffline();
+    }
   });
   wc.on('did-finish-load', () => {
-    if (wc.getURL().startsWith('http')) {
+    if (isLoadSuccess(wc.getURL(), failedSinceStart)) {
       attempt = 0;
       clearRetry();
     }

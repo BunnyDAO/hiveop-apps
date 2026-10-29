@@ -2,7 +2,7 @@
 id: dsk-04
 title: site detects the app
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-01]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps + wenrwa-arena

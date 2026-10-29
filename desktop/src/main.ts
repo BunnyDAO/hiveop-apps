@@ -91,6 +91,8 @@ function createWindow(): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       webviewTag: false,
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--hiveop-site-origin=${site.origin}`, `--hiveop-version=${app.getVersion()}`],
     },
   });
   const wc = w.webContents;

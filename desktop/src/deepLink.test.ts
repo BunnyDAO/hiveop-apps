@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deepLinkFromArgv, parseDeepLink, toSiteUrl } from './deepLink';
+import { deepLinkFromArgv, parseAuthLink, parseDeepLink, toSiteUrl } from './deepLink';
 
 describe('parseDeepLink', () => {
   const ok: Array<[string, string]> = [
@@ -44,5 +44,32 @@ describe('deepLinkFromArgv', () => {
   it('finds the first hiveop:// argument', () => {
     expect(deepLinkFromArgv(['app.exe', '--flag', 'hiveop://open?path=/x'])).toBe('hiveop://open?path=/x');
     expect(deepLinkFromArgv(['app', 'foo'])).toBeUndefined();
+  });
+});
+
+describe('parseAuthLink', () => {
+  const token = 'abcDEF123_-.~abcDEF123_-';
+  it('accepts hiveop://auth with a well-formed handoff', () => {
+    expect(parseAuthLink(`hiveop://auth?handoff=${token}`)).toEqual({ kind: 'auth', handoff: token });
+    expect(parseAuthLink(`HIVEOP://auth?handoff=${token}`)).toEqual({ kind: 'auth', handoff: token });
+  });
+  const bad = [
+    'hiveop://auth',
+    'hiveop://auth?handoff=',
+    'hiveop://auth?handoff=short',
+    `hiveop://auth?handoff=${'a'.repeat(513)}`,
+    'hiveop://auth?handoff=abc def abc def abc def',
+    'hiveop://auth?handoff=aaaaaaaaaaaaaaaaaaaaaaaa%0d%0a',
+    'hiveop://auth?handoff=aaaaaaaaaaaaaaaaaaaaaaaa/../x',
+    `hiveop://auth?handoff=${token}&handoff=${token}`,
+    `hiveop://open?handoff=${token}`,
+    `https://app.hiveop.io/?handoff=${token}`,
+    'not a url',
+  ];
+  it.each(bad)('rejects %s', (raw) => {
+    expect(parseAuthLink(raw)).toBeNull();
+  });
+  it('is not an open link', () => {
+    expect(parseDeepLink(`hiveop://auth?handoff=${token}`)).toBeNull();
   });
 });

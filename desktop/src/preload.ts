@@ -20,5 +20,18 @@ if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-si
           ipcRenderer.removeListener('hiveop:browser-open-tab', listener);
         };
       },
+      bounce: async () => {
+        await ipcRenderer.invoke('hiveop:auth-bounce');
+      },
+      onHandoff: (cb) => {
+        const listener = (_e: unknown, p: unknown): void => {
+          const o = p as { handoff?: unknown; verifier?: unknown } | null;
+          if (o && typeof o.handoff === 'string' && typeof o.verifier === 'string') cb({ handoff: o.handoff, verifier: o.verifier });
+        };
+        ipcRenderer.on('hiveop:auth-handoff', listener);
+        return () => {
+          ipcRenderer.removeListener('hiveop:auth-handoff', listener);
+        };
+      },
     }));
 }

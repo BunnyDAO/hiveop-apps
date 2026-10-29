@@ -27,6 +27,28 @@ export function parseDeepLink(raw: string): OpenLink | null {
   return safePath(path) ? { kind: 'open', path } : null;
 }
 
+export interface AuthLink {
+  kind: 'auth';
+  /** Single-use handoff token: URL-safe characters only. */
+  handoff: string;
+}
+
+const HANDOFF_RE = /^[A-Za-z0-9._~-]{16,512}$/;
+
+/** Parse hiveop://auth?handoff=<token>. Pure; strict on charset, length and a single param. */
+export function parseAuthLink(raw: string): AuthLink | null {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'hiveop:' || u.hostname !== 'auth') return null;
+  const all = u.searchParams.getAll('handoff');
+  if (all.length !== 1 || !HANDOFF_RE.test(all[0])) return null;
+  return { kind: 'auth', handoff: all[0] };
+}
+
 /** Join a validated path onto the site origin. Never yields another origin. */
 export function toSiteUrl(path: string, siteOrigin: string): string {
   const u = new URL(path, siteOrigin);

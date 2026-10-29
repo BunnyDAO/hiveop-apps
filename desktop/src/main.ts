@@ -6,6 +6,8 @@ import { decide, type Decision } from './navPolicy';
 import { installNativeBrowser } from './nativeBrowser';
 import { resolveSiteUrl, userAgentFor } from './site';
 import { openAppPopup } from './popup';
+import { createAuthBounce } from './authBounce';
+import { randomBytes } from 'node:crypto';
 import { attachWindow, installShell, startShell } from './shell';
 
 const APP_ID = 'io.hiveop.desktop';
@@ -13,6 +15,16 @@ const RETRY_SCHEME = 'hiveop-retry:';
 const SMOKE = process.env.HIVEOP_SMOKE === '1'; // hidden window for automated checks
 
 const site = resolveSiteUrl(process.env);
+// Backend that starts Google sign-in (dsk-02). Override for staging.
+const OAUTH_API = process.env.HIVEOP_OAUTH_API || 'https://api.hiveop.io/api/v1';
+const authBounce = createAuthBounce({
+  oauthApi: OAUTH_API,
+  siteOrigin: site.origin,
+  randomBytes,
+  now: Date.now,
+  // Smoke runs never open a real browser: log what would have opened.
+  open: (url) => (SMOKE ? void console.log(`[smoke] openExternal ${url}`) : shell.openExternal(url)),
+});
 const offlineFile = path.join(__dirname, '..', 'resources', 'offline.html');
 const offlineUrl = pathToFileURL(offlineFile).href;
 
@@ -156,6 +168,7 @@ if (!app.requestSingleInstanceLock()) {
   installShell({
     siteOrigin: site.origin,
     smoke: SMOKE,
+    authBounce,
     getWindow: () => (win && !win.isDestroyed() ? win : null),
     ensureWindow: () => {
       if (!win || win.isDestroyed()) win = createWindow();

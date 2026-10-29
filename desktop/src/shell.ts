@@ -1,9 +1,10 @@
 // Tray, close-to-tray, quit, login item and hiveop:// deep links (dsk-05).
 // Kept separate from main.ts: main only calls installShell() and attachWindow().
-import { app, BrowserWindow, dialog, Menu, nativeImage, Tray } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
-import { deepLinkFromArgv, parseDeepLink, toSiteUrl } from './deepLink';
+import type { AuthBounce } from './authBounce';
+import { deepLinkFromArgv, parseAuthLink, parseDeepLink, toSiteUrl } from './deepLink';
 import { parsePrefs, serializePrefs, type Prefs } from './prefs';
 import { quitPrompt } from './quitGuard';
 
@@ -17,6 +18,8 @@ export interface ShellHost {
   ensureWindow(): BrowserWindow;
   /** Hidden-window automated checks: no tray, no login item, no protocol registration. */
   smoke: boolean;
+  /** Google sign-in through the system browser (dsk-09). */
+  authBounce: AuthBounce;
 }
 
 let quitting = false;
@@ -67,6 +70,11 @@ export function showMainWindow(): BrowserWindow {
 /** Navigate the one window to a site path from a hiveop:// link; foreign links are ignored. */
 export function handleDeepLink(raw: string | undefined): void {
   if (!raw) return;
+  const auth = parseAuthLink(raw);
+  if (auth) {
+    deliverHandoff(auth.handoff);
+    return;
+  }
   const link = parseDeepLink(raw);
   if (!link) return;
   const url = toSiteUrl(link.path, host.siteOrigin);
@@ -76,6 +84,16 @@ export function handleDeepLink(raw: string | undefined): void {
     return;
   }
   void showMainWindow().loadURL(url);
+}
+
+/** Pair the handoff with the pending verifier and hand both to the site; no pending bounce, no delivery. */
+function deliverHandoff(handoff: string): void {
+  const payload = host.authBounce.take(handoff);
+  if (!payload) return;
+  const w = host.getWindow();
+  if (!w) return;
+  w.webContents.send('hiveop:auth-handoff', payload);
+  if (!host.smoke) showMainWindow();
 }
 
 export function requestQuit(): void {
@@ -134,6 +152,20 @@ export function installShell(h: ShellHost): void {
       app.setAsDefaultProtocolClient(PROTOCOL);
     }
   }
+  // Only the site's own top frame in the main window may start a bounce.
+  ipcMain.handle('hiveop:auth-bounce', async (e) => {
+    const w = host.getWindow();
+    const f = e.senderFrame;
+    if (!w || e.sender !== w.webContents || !f || f !== w.webContents.mainFrame) throw new Error('not allowed');
+    let origin = '';
+    try {
+      origin = new URL(f.url).origin;
+    } catch {
+      /* fall through */
+    }
+    if (origin !== host.siteOrigin) throw new Error('not allowed');
+    await host.authBounce.start();
+  });
   app.on('open-url', (event, url) => {
     event.preventDefault();
     if (app.isReady()) handleDeepLink(url);

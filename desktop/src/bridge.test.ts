@@ -57,3 +57,39 @@ describe('buildBridge', () => {
     expect(Object.isFrozen(n.capabilities)).toBe(true);
   });
 });
+
+describe('buildBridge auth', () => {
+  it('adds auth-bounce and auth.bounce/onHandoff when the host can bounce', async () => {
+    let handler: ((p: { handoff: string; verifier: string }) => void) | null = null;
+    let bounced = 0;
+    const b = buildBridge('0.1.0', {
+      bounce: async () => {
+        bounced++;
+      },
+      onHandoff: (cb) => {
+        handler = cb;
+        return () => {
+          handler = null;
+        };
+      },
+    });
+    expect(b.capabilities).toEqual(['auth-bounce']);
+    await b.auth!.bounce();
+    expect(bounced).toBe(1);
+    const seen: unknown[] = [];
+    const off = b.auth!.onHandoff((p) => seen.push(p));
+    handler!({ handoff: 'h', verifier: 'v' });
+    handler!({ handoff: 3 as unknown as string, verifier: 'v' });
+    expect(seen).toEqual([{ handoff: 'h', verifier: 'v' }]);
+    off();
+    expect(handler).toBeNull();
+  });
+  it('lists both capabilities when both hosts are wired', () => {
+    const b = buildBridge('0.1.0', {
+      onOpenTab: () => () => {},
+      bounce: async () => {},
+      onHandoff: () => () => {},
+    });
+    expect(b.capabilities).toEqual(['native-browser', 'auth-bounce']);
+  });
+});

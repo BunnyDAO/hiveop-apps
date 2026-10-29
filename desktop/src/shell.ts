@@ -9,6 +9,7 @@ import { parsePrefs, serializePrefs, type Prefs } from './prefs';
 import { quitPrompt } from './quitGuard';
 import { agentsLine, bridgeStatusLine } from './trayStatus';
 import type { BridgeState } from './bridgeSupervisor';
+import { updateMenuItem, type UpdateState } from './shellUpdater';
 
 const PROTOCOL = 'hiveop';
 
@@ -40,6 +41,17 @@ export function setLocalAgentCounter(fn: () => number): void {
 let trayBridge: { state: BridgeState; agents: number } = { state: { kind: 'none' }, agents: 0 };
 export function setBridgeStatus(state: BridgeState, agents: number): void {
   trayBridge = { state, agents };
+  if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
+}
+
+/** Shell update state shown in the tray menu (dsk-16). */
+let updateState: UpdateState = { kind: 'idle' };
+let updateActions: { openRelease(url: string): void; restart(): void } = { openRelease: () => undefined, restart: () => undefined };
+export function setUpdateActions(a: typeof updateActions): void {
+  updateActions = a;
+}
+export function setUpdateState(s: UpdateState): void {
+  updateState = s;
   if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
 }
 
@@ -110,9 +122,24 @@ export function requestQuit(): void {
 }
 
 function buildMenu(prefs: Prefs): Menu {
+  const upd = updateMenuItem(updateState);
+  const updRow: Electron.MenuItemConstructorOptions[] = upd
+    ? [
+        {
+          label: upd.label,
+          enabled: upd.action !== null,
+          click: () => {
+            if (upd.action === 'restart') updateActions.restart();
+            else if (upd.action === 'open-release' && updateState.kind === 'available') updateActions.openRelease(updateState.url);
+          },
+        },
+        { type: 'separator' },
+      ]
+    : [];
   return Menu.buildFromTemplate([
     { label: 'Open HiveOp', click: () => showMainWindow() },
     { type: 'separator' },
+    ...updRow,
     { label: bridgeStatusLine(trayBridge.state), enabled: false },
     { label: agentsLine(trayBridge.agents), enabled: false },
     { type: 'separator' },

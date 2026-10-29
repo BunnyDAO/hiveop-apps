@@ -8,7 +8,8 @@ import { resolveSiteUrl, userAgentFor } from './site';
 import { openAppPopup } from './popup';
 import { createAuthBounce } from './authBounce';
 import { randomBytes } from 'node:crypto';
-import { attachWindow, installShell, setBridgeStatus, setLocalAgentCounter, startShell } from './shell';
+import { attachWindow, installShell, setBridgeStatus, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
+import { createShellUpdater } from './shellUpdaterHost';
 import { createBridgeHost } from './bridgeHost';
 
 const APP_ID = 'io.hiveop.desktop';
@@ -173,6 +174,12 @@ const bridgeHost = createBridgeHost({
   },
 });
 
+const shellUpdater = createShellUpdater({ env: process.env, onChange: (s) => {
+    if (SMOKE) console.log(`[smoke] update ${JSON.stringify(s)}`);
+    setUpdateState(s);
+  },
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -192,6 +199,14 @@ if (!app.requestSingleInstanceLock()) {
     startShell();
     setLocalAgentCounter(() => bridgeHost.localAgents());
     void bridgeHost.start();
+    setUpdateActions({
+      openRelease: (url) => (SMOKE ? void console.log(`[smoke] openExternal ${url}`) : void shell.openExternal(url)),
+      restart: () => shellUpdater.restart(),
+    });
+    shellUpdater.start();
   });
-  app.on('will-quit', () => bridgeHost.stop()); // stops only the bridge this app started
+  app.on('will-quit', () => {
+    shellUpdater.stop();
+    bridgeHost.stop();
+  }); // stops only the bridge this app started
 }

@@ -7,7 +7,15 @@ files:
   - dist/**
   - resources/**
   - package.json
-artifactName: HiveOp-${version}-${os}-${arch}.${ext}
+# Version-less names keep github.com/BunnyDAO/hiveop-apps/releases/latest/download/<name> stable.
+# The latest*.yml files electron-builder emits reference these same names, so electron-updater
+# resolves them with no extra copies. The version lives in the yml and the release tag.
+artifactName: HiveOp-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: BunnyDAO
+  repo: hiveop-apps
+  releaseType: release
 protocols:
   - name: HiveOp
     schemes: [hiveop]
@@ -28,6 +36,7 @@ mac:
 
 dmg:
   sign: false
+  artifactName: HiveOp-mac-universal.${ext}
 
 win:
   icon: resources/icon.png
@@ -40,6 +49,7 @@ win:
 nsis:
   oneClick: false
   perMachine: false
+  artifactName: HiveOp-win-x64.${ext}
   allowToChangeInstallationDirectory: true
 
 linux:
@@ -54,3 +64,9 @@ linux:
       arch: x64
   mimeTypes:
     - x-scheme-handler/hiveop
+
+appImage:
+  artifactName: HiveOp-linux-x86_64.${ext}
+
+deb:
+  artifactName: HiveOp-linux-amd64.${ext}

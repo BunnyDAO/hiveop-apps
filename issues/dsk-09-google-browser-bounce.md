@@ -2,7 +2,7 @@
 id: dsk-09
 title: google browser bounce
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-02, dsk-04, dsk-05]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps + wenrwa-arena

@@ -1,15 +1,18 @@
 export interface Prefs {
   startAtLogin: boolean;
+  /** The user said "Not now" to HiveOp managing their CLI bridge (dsk-12): never ask again. */
+  takeoverDeclined: boolean;
 }
 
-export const DEFAULT_PREFS: Prefs = { startAtLogin: true };
+export const DEFAULT_PREFS: Prefs = { startAtLogin: true, takeoverDeclined: false };
 
 export function parsePrefs(text: string | undefined): Prefs {
   if (!text) return { ...DEFAULT_PREFS };
   try {
-    const o: unknown = JSON.parse(text);
-    const v = (o as { startAtLogin?: unknown } | null)?.startAtLogin;
-    if (typeof v === 'boolean') return { startAtLogin: v };
+    const o = JSON.parse(text) as { startAtLogin?: unknown; takeoverDeclined?: unknown } | null;
+    if (typeof o?.startAtLogin === 'boolean') {
+      return { startAtLogin: o.startAtLogin, takeoverDeclined: o.takeoverDeclined === true };
+    }
   } catch {
     /* fall through */
   }
@@ -17,5 +20,5 @@ export function parsePrefs(text: string | undefined): Prefs {
 }
 
 export function serializePrefs(p: Prefs): string {
-  return JSON.stringify({ startAtLogin: p.startAtLogin });
+  return JSON.stringify({ startAtLogin: p.startAtLogin, takeoverDeclined: p.takeoverDeclined });
 }

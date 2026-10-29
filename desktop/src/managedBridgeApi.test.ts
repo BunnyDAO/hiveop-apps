@@ -50,4 +50,24 @@ describe('withManagedBridge', () => {
     expect(seen).toEqual([{ kind: 'crashed', attempt: 2, retryInMs: 4000, paired: true, agents: 0 }]);
     off();
   });
+
+  it('takeover (dsk-12) exists only when the host offers it, and is frozen with the rest', async () => {
+    expect(withManagedBridge(buildBridge('0.1.0'), host().h).bridge!.takeOver).toBeUndefined();
+    let took = 0;
+    let declined = 0;
+    const { h } = host({ takeOver: async () => (took++, true), declineTakeover: async () => void declined++ });
+    const d = withManagedBridge(buildBridge('0.1.0'), h);
+    expect(await d.bridge!.takeOver!()).toBe(true);
+    await d.bridge!.declineTakeover!();
+    expect([took, declined]).toEqual([1, 1]);
+  });
+  it('the view carries a takeover step only from the known set', async () => {
+    const { h } = host({
+      state: async () => ({ kind: 'running', owner: 'cli', paired: true, agents: 0, takeover: 'offer' }),
+    });
+    const d = withManagedBridge(buildBridge('0.1.0'), h);
+    expect(await d.bridge!.state()).toEqual({ kind: 'running', owner: 'cli', paired: true, agents: 0, takeover: 'offer' });
+    const bad = host({ state: async () => ({ kind: 'running', owner: 'cli', paired: true, agents: 0, takeover: 'rm -rf' }) });
+    expect(await withManagedBridge(buildBridge('0.1.0'), bad.h).bridge!.state()).toEqual({ kind: 'running', owner: 'cli', paired: true, agents: 0 });
+  });
 });

@@ -5,12 +5,15 @@ import { app, ipcMain, safeStorage, type WebContents } from 'electron';
 import { createHash } from 'node:crypto';
 import { execFile, spawn as spawnProcess } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
 import { countChildPtys } from './agentCount';
 import { BRIDGE_ENTRY_SOURCE } from './bridgeEntry';
 import { nodeShim } from './nodeShim';
 import { installBridge, readCurrent, rollbackCurrent, type InstallerDeps } from './bridgeInstaller';
+import { removeCliAutostart } from './cliAutostart';
+import { createTakeover, parsePids } from './takeover';
 import { createUpdater, earlyExitRollback } from './bridgeUpdater';
 import { createSupervisor, type BridgeState, type Child, type Discovery } from './bridgeSupervisor';
 import { createTokenStore, isConnectToken } from './bridgeToken';
@@ -21,6 +24,8 @@ import { CLI_PACKAGE, metaUrl, NPM_VERSION, parseDist } from './registry';
 
 export const IPC_PAIR = 'hiveop:bridge-pair';
 export const IPC_STATE = 'hiveop:bridge-state';
+export const IPC_TAKEOVER = 'hiveop:bridge-takeover';
+export const IPC_DECLINE_TAKEOVER = 'hiveop:bridge-decline-takeover';
 export const IPC_STATE_PUSH = 'hiveop:bridge-state-changed';
 
 const DEFAULT_PORT = 8377;
@@ -31,6 +36,9 @@ export interface BridgeHostOptions {
   getWindow(): { webContents: WebContents; isDestroyed(): boolean } | null;
   onChange(): void;
   /** A downloaded bridge version is waiting for the agents to stop; null when none (dsk-11). */
+  /** "Not now" is remembered in app prefs (dsk-12). */
+  takeoverDeclined?(): boolean;
+  declineTakeover?(): void;
   onUpdatePending?(version: string | null): void;
   env?: NodeJS.ProcessEnv;
 }
@@ -260,9 +268,82 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
   // A swap can become possible whenever the bridge state changes (an agent ended, a restart landed).
   supervisor.onState(() => updater.evaluate());
 
+  // dsk-12 — taking over a CLI bridge. Under a scratch HOME (test seam) launchctl is never called.
+  const scratchHome = Boolean(env.HIVEOP_BRIDGE_HOME);
+  const userHome = env.HIVEOP_BRIDGE_HOME || os.homedir();
+  const findCliPid = async (): Promise<number | null> => {
+    try {
+      const out = await run('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t']);
+      return parsePids(out).find((p) => p !== process.pid) ?? null;
+    } catch {
+      return null; // lsof exits 1 when nothing listens
+    }
+  };
+  const pidAlive = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const takeover = createTakeover({
+    prepare: async () => {
+      if (!tokens.has()) return false;
+      if (!readCurrent(bridgeRoot) || tarballOverride) {
+        const r = await installBridge(bridgeRoot, installerDeps, { tarball: tarballOverride });
+        if (r.status === 'refused') return false;
+      }
+      return readCurrent(bridgeRoot) !== null;
+    },
+    findCliPid,
+    countAgents: async (pid) => (process.platform === 'win32' ? 0 : countChildPtys(await run('ps', ['-A', '-o', 'pid=,ppid=,comm=']), pid)),
+    removeAutostart: async () => {
+      await removeCliAutostart({
+        platform: process.platform,
+        home: userHome,
+        uid: process.getuid?.() ?? 0,
+        scratchHome,
+        exists: (p) => fs.existsSync(p),
+        unlink: (p) => fs.unlinkSync(p),
+        launchctl: async (args) => {
+          await new Promise<void>((resolve, reject) => {
+            execFile('launchctl', args, (err) => (err ? reject(Object.assign(err, { code: (err as { code?: unknown }).code })) : resolve()));
+          });
+        },
+      });
+    },
+    terminate: async (pid) => {
+      try {
+        process.kill(pid, 'SIGTERM'); // exact pid, never SIGKILL
+      } catch {
+        /* already gone */
+      }
+      for (let i = 0; i < 20; i++) {
+        if (!pidAlive(pid) && !(await discover())) return true;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return false;
+    },
+    startManaged: () => supervisor.recheck(),
+    schedule: (fn, ms) => {
+      const t = setTimeout(fn, ms);
+      return () => clearTimeout(t);
+    },
+    pollMs: 2000,
+    onState: () => changed(),
+  });
+
   const view = (): BridgeView => {
     const s = installNote ?? supervisor.state();
-    return { ...s, paired: tokens.has(), agents: supervisor.localAgents() } as BridgeView;
+    const v = { ...s, paired: tokens.has(), agents: supervisor.localAgents() } as BridgeView;
+    if (v.kind === 'running' && v.owner === 'cli') {
+      const t = takeover.state();
+      const declined = o.takeoverDeclined?.() === true;
+      if (t !== 'idle') v.takeover = t;
+      else if (!declined) v.takeover = 'offer';
+    }
+    return v;
   };
   const changed = (): void => {
     o.onChange();
@@ -308,6 +389,15 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     if (!installNote) await supervisor.tokenChanged(); // starts it if stopped, restarts our own bridge on a new token
     changed();
     return true;
+  });
+  ipcMain.handle(IPC_TAKEOVER, async (event) => {
+    if (event.sender !== o.getWindow()?.webContents) return false;
+    return (await takeover.run()) === 'done';
+  });
+  ipcMain.handle(IPC_DECLINE_TAKEOVER, (event) => {
+    if (event.sender !== o.getWindow()?.webContents) return;
+    o.declineTakeover?.();
+    changed();
   });
   ipcMain.handle(IPC_STATE, (event) => (event.sender === o.getWindow()?.webContents ? view() : null));
 

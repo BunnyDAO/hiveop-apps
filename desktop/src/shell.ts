@@ -81,6 +81,14 @@ function savePrefs(p: Prefs): void {
   }
 }
 
+/** "Not now" on the CLI-bridge takeover offer is remembered (dsk-12). */
+export function isTakeoverDeclined(): boolean {
+  return loadPrefs().takeoverDeclined;
+}
+export function declineTakeoverPref(): void {
+  savePrefs({ ...loadPrefs(), takeoverDeclined: true });
+}
+
 function applyLoginItem(p: Prefs): void {
   // Unpackaged dev runs would register the bare Electron binary as a login item.
   if (host.smoke || !app.isPackaged) return;
@@ -156,7 +164,7 @@ function buildMenu(prefs: Prefs): Menu {
       type: 'checkbox',
       checked: prefs.startAtLogin,
       click: (item) => {
-        const next = { startAtLogin: item.checked };
+        const next = { ...loadPrefs(), startAtLogin: item.checked };
         savePrefs(next);
         applyLoginItem(next);
       },

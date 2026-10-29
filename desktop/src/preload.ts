@@ -38,6 +38,9 @@ if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-si
       // dsk-10 — managed bridge (capability `managed-bridge`). Channel names mirror bridgeHost.ts.
       pair: (token) => ipcRenderer.invoke('hiveop:bridge-pair', token) as Promise<boolean>,
       state: () => ipcRenderer.invoke('hiveop:bridge-state'),
+      // dsk-12 — taking over a CLI bridge. Channel names mirror bridgeHost.ts.
+      takeOver: () => ipcRenderer.invoke('hiveop:bridge-takeover') as Promise<boolean>,
+      declineTakeover: () => ipcRenderer.invoke('hiveop:bridge-decline-takeover') as Promise<void>,
       onState: (cb) => {
         const listener = (_e: unknown, v: unknown): void => cb(v);
         ipcRenderer.on('hiveop:bridge-state-changed', listener);

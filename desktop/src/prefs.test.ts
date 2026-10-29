@@ -11,6 +11,14 @@ describe('prefs', () => {
     expect(parsePrefs('{"startAtLogin":"yes"}')).toEqual(DEFAULT_PREFS);
   });
   it('round-trips the users choice', () => {
-    expect(parsePrefs(serializePrefs({ startAtLogin: false }))).toEqual({ startAtLogin: false });
+    expect(parsePrefs(serializePrefs({ startAtLogin: false, takeoverDeclined: false }))).toEqual({ startAtLogin: false, takeoverDeclined: false });
+  });
+  it('remembers a declined takeover (dsk-12), off by default', () => {
+    expect(DEFAULT_PREFS.takeoverDeclined).toBe(false);
+    const p = { startAtLogin: true, takeoverDeclined: true };
+    expect(parsePrefs(serializePrefs(p))).toEqual(p);
+  });
+  it('an old prefs file without the field still loads', () => {
+    expect(parsePrefs('{"startAtLogin":false}')).toEqual({ startAtLogin: false, takeoverDeclined: false });
   });
 });

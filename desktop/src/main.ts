@@ -8,7 +8,7 @@ import { resolveSiteUrl, userAgentFor } from './site';
 import { openAppPopup } from './popup';
 import { createAuthBounce } from './authBounce';
 import { randomBytes } from 'node:crypto';
-import { attachWindow, installShell, setBridgeStatus, setBridgeUpdatePending, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
+import { attachWindow, declineTakeoverPref, installShell, isTakeoverDeclined, setBridgeStatus, setBridgeUpdatePending, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
 import { createShellUpdater } from './shellUpdaterHost';
 import { createBridgeHost } from './bridgeHost';
 
@@ -168,6 +168,8 @@ function createWindow(): BrowserWindow {
 const bridgeHost = createBridgeHost({
   siteOrigin: site.origin,
   getWindow: () => (win && !win.isDestroyed() ? win : null),
+  takeoverDeclined: isTakeoverDeclined,
+  declineTakeover: declineTakeoverPref,
   onUpdatePending: (v) => setBridgeUpdatePending(v),
   onChange: () => {
     const v = bridgeHost.view();

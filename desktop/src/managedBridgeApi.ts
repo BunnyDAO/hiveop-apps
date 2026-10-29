@@ -4,9 +4,11 @@ import type { HiveopDesktop } from './bridge';
 import { isConnectToken } from './bridgeToken';
 
 /** What the page sees: the supervisor state plus whether a token is stored and the local agent count. */
+export type TakeoverStep = 'offer' | 'waiting' | 'switching' | 'failed';
+
 export type BridgeView =
   | { kind: 'none' | 'unpaired' | 'starting'; paired: boolean; agents: number }
-  | { kind: 'running'; owner: 'managed' | 'cli'; version?: string; paired: boolean; agents: number }
+  | { kind: 'running'; owner: 'managed' | 'cli'; version?: string; paired: boolean; agents: number; takeover?: TakeoverStep }
   | { kind: 'crashed'; attempt: number; retryInMs: number; paired: boolean; agents: number };
 
 export interface ManagedBridgeApi {
@@ -15,6 +17,10 @@ export interface ManagedBridgeApi {
   readonly state: () => Promise<BridgeView | null>;
   /** Returns an unsubscribe. */
   readonly onState: (cb: (s: BridgeView) => void) => () => void;
+  /** dsk-12 — let HiveOp manage a running CLI bridge. Resolves when the switch is done (false if it failed). Absent on shells without it. */
+  readonly takeOver?: () => Promise<boolean>;
+  /** dsk-12 — "Not now": remembered, the offer never comes back. */
+  readonly declineTakeover?: () => Promise<void>;
 }
 
 export type HiveopDesktopWithBridge = HiveopDesktop & { readonly bridge?: ManagedBridgeApi };
@@ -24,6 +30,8 @@ export interface ManagedBridgeHost {
   pair(token: string): Promise<boolean>;
   state(): Promise<unknown>;
   onState(cb: (v: unknown) => void): () => void;
+  takeOver?(): Promise<boolean>;
+  declineTakeover?(): Promise<void>;
 }
 
 /** Copy only known, well-typed fields; anything else is not a state. */
@@ -39,7 +47,14 @@ export function sanitizeView(v: unknown): BridgeView | null {
       return { kind: o.kind, paired, agents };
     case 'running':
       if (o.owner !== 'managed' && o.owner !== 'cli') return null;
-      return { kind: 'running', owner: o.owner, ...(typeof o.version === 'string' ? { version: o.version } : {}), paired, agents };
+      return {
+        kind: 'running',
+        owner: o.owner,
+        ...(typeof o.version === 'string' ? { version: o.version } : {}),
+        paired,
+        agents,
+        ...(o.takeover === 'offer' || o.takeover === 'waiting' || o.takeover === 'switching' || o.takeover === 'failed' ? { takeover: o.takeover } : {}),
+      };
     case 'crashed':
       if (typeof o.attempt !== 'number' || typeof o.retryInMs !== 'number') return null;
       return { kind: 'crashed', attempt: o.attempt, retryInMs: o.retryInMs, paired, agents };
@@ -58,6 +73,9 @@ export function withManagedBridge(base: HiveopDesktop, host: ManagedBridgeHost |
         const s = sanitizeView(v);
         if (s) cb(s);
       }),
+    ...(host.takeOver && host.declineTakeover
+      ? { takeOver: async () => (await host.takeOver!()) === true, declineTakeover: async () => void (await host.declineTakeover!()) }
+      : {}),
   });
   return Object.freeze({ ...base, capabilities: Object.freeze([...base.capabilities, 'managed-bridge']), bridge });
 }

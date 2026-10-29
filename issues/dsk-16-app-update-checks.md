@@ -2,7 +2,7 @@
 id: dsk-16
 title: app update checks
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-07]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps

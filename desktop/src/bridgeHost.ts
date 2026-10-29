@@ -14,6 +14,8 @@ import { nodeShim } from './nodeShim';
 import { installBridge, readCurrent, rollbackCurrent, type InstallerDeps } from './bridgeInstaller';
 import { removeCliAutostart } from './cliAutostart';
 import { createTakeover, parsePids } from './takeover';
+import { createClaudeSetup, findOnPath, gitAvailable, npmFailureReason } from './claudeSetup';
+import type { ClaudeView } from './claudeSetupApi';
 import { createUpdater, earlyExitRollback } from './bridgeUpdater';
 import { createSupervisor, type BridgeState, type Child, type Discovery } from './bridgeSupervisor';
 import { createTokenStore, isConnectToken } from './bridgeToken';
@@ -26,6 +28,10 @@ export const IPC_PAIR = 'hiveop:bridge-pair';
 export const IPC_STATE = 'hiveop:bridge-state';
 export const IPC_TAKEOVER = 'hiveop:bridge-takeover';
 export const IPC_DECLINE_TAKEOVER = 'hiveop:bridge-decline-takeover';
+export const IPC_CLAUDE_STATE = 'hiveop:claude-state';
+export const IPC_CLAUDE_ENSURE = 'hiveop:claude-ensure';
+export const IPC_CLAUDE_INSTALL_GIT = 'hiveop:claude-install-git';
+export const IPC_CLAUDE_PUSH = 'hiveop:claude-state-changed';
 export const IPC_STATE_PUSH = 'hiveop:bridge-state-changed';
 
 const DEFAULT_PORT = 8377;
@@ -165,6 +171,91 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     return null;
   }
 
+  // dsk-13 — the app's own Claude Code lives under tools/claude-code. Its bin goes LAST on the
+  // bridge PATH, so a `claude` the user has (earlier on the login PATH) always wins.
+  const claudeDir = path.join(toolsDir, 'claude-code');
+  const claudeBin = path.join(claudeDir, 'node_modules', '.bin');
+  const userPath = (): string =>
+    bridgePath({ toolsDir: path.join(toolsDir, 'bin'), loginPath, inheritedPath: env.PATH ?? env.Path, delimiter: path.delimiter });
+  const bridgePathWithClaude = (): string => `${userPath()}${path.delimiter}${claudeBin}`;
+  const isExecutable = (p: string): boolean => {
+    try {
+      fs.accessSync(p, fs.constants.X_OK);
+      return fs.statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  };
+  const claudeNames = process.platform === 'win32' ? ['claude.exe', 'claude.cmd'] : ['claude'];
+  const findIn = (dirs: string[]): string | null => {
+    for (const n of claudeNames) {
+      const hit = findOnPath(n, dirs, isExecutable);
+      if (hit) return hit;
+    }
+    return null;
+  };
+
+  async function installClaude(): Promise<void> {
+    const npmCli = await ensureNpm();
+    fs.mkdirSync(claudeDir, { recursive: true });
+    if (!fs.existsSync(path.join(claudeDir, 'package.json'))) fs.writeFileSync(path.join(claudeDir, 'package.json'), '{"private":true}');
+    // The package's post-install is `node install.cjs`, and a Mac without Node has no `node`: give the install one.
+    const installBin = path.join(toolsDir, 'install-bin');
+    fs.mkdirSync(installBin, { recursive: true });
+    const shim = nodeShim(process.platform, process.execPath);
+    const nodeFile = path.join(installBin, process.platform === 'win32' ? 'node.cmd' : 'node');
+    fs.writeFileSync(nodeFile, shim.content, { mode: shim.mode });
+    fs.chmodSync(nodeFile, shim.mode);
+    const scratch = env.HIVEOP_BRIDGE_HOME ? { HOME: env.HIVEOP_BRIDGE_HOME, USERPROFILE: env.HIVEOP_BRIDGE_HOME } : {};
+    const installEnv: NodeJS.ProcessEnv = {
+      ...env,
+      ...scratch,
+      ELECTRON_RUN_AS_NODE: '1',
+      ...(env.HIVEOP_CLAUDE_NPM_REGISTRY ? { npm_config_registry: env.HIVEOP_CLAUDE_NPM_REGISTRY } : {}), // test seam: make the install fail
+      [process.platform === 'win32' ? 'Path' : 'PATH']: `${installBin}${path.delimiter}${userPath()}`,
+    };
+    try {
+      await run(
+        process.execPath,
+        [npmCli, 'install', '--prefix', claudeDir, '@anthropic-ai/claude-code', '--no-audit', '--no-fund', '--no-package-lock', '--cache', path.join(toolsDir, 'npm-cache')],
+        { env: installEnv, timeout: 600_000 },
+      );
+    } catch (e) {
+      throw new Error(npmFailureReason((e as Error).message));
+    }
+    const bin = findIn([claudeBin]);
+    if (!bin) throw new Error('Claude Code did not install');
+    try {
+      await run(bin, ['--version'], { env: { ...installEnv, DISABLE_AUTOUPDATER: '1' }, timeout: 30_000 }); // proves the native binary runs
+    } catch {
+      throw new Error('Claude Code installed but would not start');
+    }
+  }
+
+  const smoke = env.HIVEOP_SMOKE === '1';
+  const claudeSetup = createClaudeSetup({
+    findClaude: async () => (findIn(userPath().split(path.delimiter)) ? 'user' : findIn([claudeBin]) ? 'app' : null),
+    hasGit: async () => {
+      if (env.HIVEOP_NO_GIT === '1') return false; // test seam
+      let tools = false;
+      if (process.platform === 'darwin') {
+        try {
+          await run('xcode-select', ['-p']); // exits 2 when no developer tools; never opens a dialog
+          tools = true;
+        } catch {
+          /* not installed */
+        }
+      }
+      return gitAvailable({ platform: process.platform, dirs: userPath().split(path.delimiter), exists: (p) => fs.existsSync(p), developerToolsInstalled: tools });
+    },
+    install: installClaude,
+    onState: () => {
+      const w = o.getWindow();
+      if (w && !w.isDestroyed()) w.webContents.send(IPC_CLAUDE_PUSH, claudeView());
+    },
+  });
+  const claudeView = (): ClaudeView => ({ ...claudeSetup.state(), canInstallGit: process.platform === 'darwin' }) as ClaudeView;
+
   function spawnManaged(): Child {
     const cur = readCurrent(bridgeRoot);
     const token = tokens.get();
@@ -187,12 +278,7 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
       WENRWA_NODE_COMMAND: shimFile, // the runtime contract: MCP + hook commands run through this
       ...(npm ? { WENRWA_NPM_CLI: path.join(npm.dir, 'bin', 'npm-cli.js') } : {}),
       WENRWA_BRIDGE_ORIGIN: o.siteOrigin,
-      [process.platform === 'win32' ? 'Path' : 'PATH']: bridgePath({
-        toolsDir: path.join(toolsDir, 'bin'),
-        loginPath,
-        inheritedPath: env.PATH ?? env.Path,
-        delimiter: path.delimiter,
-      }),
+      [process.platform === 'win32' ? 'Path' : 'PATH']: bridgePathWithClaude(),
     };
     runningVersion = cur.version;
     const startedAt = Date.now();
@@ -325,7 +411,10 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
       }
       return false;
     },
-    startManaged: () => supervisor.recheck(),
+    startManaged: async () => {
+      await claudeSetup.ensure(); // the CLI bridge had the user's environment; the managed one needs Claude Code too
+      await supervisor.recheck();
+    },
     schedule: (fn, ms) => {
       const t = setTimeout(fn, ms);
       return () => clearTimeout(t);
@@ -374,9 +463,17 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     changed();
   }
 
+  /** Claude Code must exist before the bridge starts: the bridge registers its MCP server with it. A failure does not block the bridge. */
+  async function setupClaude(): Promise<void> {
+    if (!tokens.has()) return;
+    if (await discover()) return; // a bridge already answers (ours, or the user's CLI): their environment, not ours
+    await claudeSetup.ensure();
+  }
+
   async function begin(): Promise<void> {
     await prepare();
     if (installNote) return;
+    await setupClaude();
     await supervisor.start();
     if (!tarballOverride || updateTarball) updater.start();
   }
@@ -386,9 +483,36 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
     if (!isConnectToken(token) || !tokens.set(token)) return false;
     if (installRetry) clearTimeout(installRetry);
     await prepare();
-    if (!installNote) await supervisor.tokenChanged(); // starts it if stopped, restarts our own bridge on a new token
+    if (!installNote) {
+      // Not awaited: installing Claude Code can take a while, and the page's pair() must not hang on it.
+      void (async () => {
+        await setupClaude();
+        await supervisor.tokenChanged(); // starts it if stopped, restarts our own bridge on a new token
+        changed();
+      })();
+    }
     changed();
     return true;
+  });
+  ipcMain.handle(IPC_CLAUDE_STATE, (event) => (event.sender === o.getWindow()?.webContents ? claudeView() : null));
+  ipcMain.handle(IPC_CLAUDE_ENSURE, async (event) => {
+    if (event.sender !== o.getWindow()?.webContents) return null;
+    const was = claudeSetup.state().kind;
+    await claudeSetup.ensure();
+    // It was blocked and now works: the bridge registered nothing with Claude Code, so start it fresh.
+    if ((was === 'failed' || was === 'git-missing') && claudeSetup.state().kind === 'ready') supervisor.restart();
+    return claudeView();
+  });
+  ipcMain.handle(IPC_CLAUDE_INSTALL_GIT, async (event) => {
+    if (event.sender !== o.getWindow()?.webContents) return false;
+    // Opens Apple's own installer dialog. Only on a click, only on a Mac, only when git is what is missing, never in smoke.
+    if (smoke || process.platform !== 'darwin' || claudeSetup.state().kind !== 'git-missing') return false;
+    try {
+      await run('xcode-select', ['--install']);
+      return true;
+    } catch {
+      return false;
+    }
   });
   ipcMain.handle(IPC_TAKEOVER, async (event) => {
     if (event.sender !== o.getWindow()?.webContents) return false;

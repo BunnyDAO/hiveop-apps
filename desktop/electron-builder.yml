@@ -1,0 +1,56 @@
+appId: io.hiveop.desktop
+productName: HiveOp
+copyright: HiveOp
+directories:
+  output: release
+files:
+  - dist/**
+  - resources/**
+  - package.json
+artifactName: HiveOp-${version}-${os}-${arch}.${ext}
+protocols:
+  - name: HiveOp
+    schemes: [hiveop]
+
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icon.png
+  target:
+    - target: dmg
+      arch: universal
+  # Unsigned for now. To sign: remove `identity: null`, set CSC_LINK/CSC_KEY_PASSWORD,
+  # and flip hardenedRuntime/notarize below (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID).
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  x64ArchFiles: "**/*"   # universal merge: tolerate identical files
+
+dmg:
+  sign: false
+
+win:
+  icon: resources/icon.png
+  target:
+    - target: nsis
+      arch: x64
+  # Signing off. To sign: set CSC_LINK/CSC_KEY_PASSWORD (or azureSignOptions) and drop `signAndEditExecutable: false`.
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  icon: resources/icon.png
+  category: Development
+  maintainer: HiveOp <support@hiveop.io>
+  synopsis: HiveOp desktop app
+  target:
+    - target: AppImage
+      arch: x64
+    - target: deb
+      arch: x64
+  mimeTypes:
+    - x-scheme-handler/hiveop

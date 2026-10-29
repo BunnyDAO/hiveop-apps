@@ -9,13 +9,20 @@
     "build": "tsc -p tsconfig.build.json && node build.mjs",
     "dev": "npm run build && electron .",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dist": "npm run build && npm run dist:mac && npm run dist:linux && npm run dist:win",
+    "dist:mac": "electron-builder --mac --universal",
+    "dist:linux": "bash scripts/dist-docker.sh linux",
+    "dist:win": "bash scripts/dist-docker.sh win"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
     "electron": "45.1.0",
-    "esbuild": "^0.28.2",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
-  }
+  },
+  "homepage": "https://hiveop.io",
+  "author": "HiveOp <support@hiveop.io>"
 }

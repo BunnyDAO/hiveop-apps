@@ -2,7 +2,7 @@
 id: dsk-02
 title: handoff bound to a challenge
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/desktop-app.md
 repo: Wenrwa-Marketplace (backend)

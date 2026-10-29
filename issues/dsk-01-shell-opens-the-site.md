@@ -2,7 +2,7 @@
 id: dsk-01
 title: shell opens the site
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps

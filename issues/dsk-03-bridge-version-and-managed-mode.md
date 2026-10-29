@@ -2,7 +2,7 @@
 id: dsk-03
 title: bridge version and managed mode
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/desktop-app.md
 repo: Wenrwa-Marketplace (CLI)

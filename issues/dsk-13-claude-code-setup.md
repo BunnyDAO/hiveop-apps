@@ -2,7 +2,7 @@
 id: dsk-13
 title: claude code setup
 type: AFK
-status: open
+status: done
 blocked_by: [dsk-10]
 parent: docs/prd/desktop-app.md
 repo: hiveop-apps + wenrwa-arena

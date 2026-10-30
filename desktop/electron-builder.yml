@@ -26,9 +26,11 @@ mac:
   target:
     - target: dmg
       arch: universal
-  # Unsigned for now. To sign: remove `identity: null`, set CSC_LINK/CSC_KEY_PASSWORD,
-  # and flip hardenedRuntime/notarize below (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID).
-  identity: null
+  # Ad-hoc signed ("-"): no Apple account, but the bundle is sealed, so macOS can
+  # remember the mic grant (unsigned, it asked again every time). An update still
+  # re-asks once. To sign properly: set identity to the Developer ID, CSC_LINK/
+  # CSC_KEY_PASSWORD, and flip hardenedRuntime/notarize below (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID).
+  identity: "-"
   hardenedRuntime: false
   gatekeeperAssess: false
   notarize: false

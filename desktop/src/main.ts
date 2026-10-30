@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net, shell } from 'electron';
+import { app, BrowserWindow, net, session, shell, systemPreferences } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
@@ -12,6 +12,7 @@ import { attachWindow, declineTakeoverPref, installShell, isTakeoverDeclined, se
 import { createShellUpdater } from './shellUpdaterHost';
 import { createBridgeHost } from './bridgeHost';
 import { windowChrome } from './windowChrome';
+import { checkMedia, requestMedia, type MediaAccessDeps } from './mediaAccess';
 
 const APP_ID = 'io.hiveop.desktop';
 const RETRY_SCHEME = 'hiveop-retry:';
@@ -201,6 +202,7 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.whenReady().then(() => {
     if (SMOKE) app.dock?.hide();
+    if (process.platform === 'darwin') installMediaAccess();
     win = createWindow();
     startShell();
     setLocalAgentCounter(() => bridgeHost.localAgents());
@@ -215,4 +217,19 @@ if (!app.requestSingleInstanceLock()) {
     shellUpdater.stop();
     bridgeHost.stop();
   }); // stops only the bridge this app started
+}
+
+/** Mac: the site's mic/camera checks report macOS's setting; a click asks macOS (see mediaAccess). */
+function installMediaAccess(): void {
+  const deps: MediaAccessDeps = {
+    status: (d) => systemPreferences.getMediaAccessStatus(d),
+    ask: (d) => systemPreferences.askForMediaAccess(d),
+  };
+  const ses = session.defaultSession;
+  ses.setPermissionCheckHandler((_wc, permission, _origin, details) =>
+    checkMedia(deps, permission, (details as { mediaType?: string }).mediaType),
+  );
+  ses.setPermissionRequestHandler((_wc, permission, cb, details) => {
+    void requestMedia(deps, permission, (details as { mediaTypes?: string[] }).mediaTypes ?? []).then(cb, () => cb(false));
+  });
 }

@@ -10,8 +10,8 @@
     "dev": "npm run build && electron .",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dist": "npm run build && npm run dist:mac && npm run dist:linux && npm run dist:win",
-    "dist:mac": "electron-builder --mac --universal",
+    "dist": "npm run dist:mac && npm run dist:linux && npm run dist:win",
+    "dist:mac": "npm run build && electron-builder --mac --universal",
     "dist:linux": "bash scripts/dist-docker.sh linux",
     "dist:win": "bash scripts/dist-docker.sh win"
   },

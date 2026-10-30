@@ -35,6 +35,7 @@ if (window.top === window && isSiteOrigin(window.location.origin, arg('hiveop-si
           ipcRenderer.removeListener('hiveop:auth-handoff', listener);
         };
       },
+      insetTitlebar: arg('hiveop-inset-titlebar') === '1',
     }), {
       // dsk-10 — managed bridge (capability `managed-bridge`). Channel names mirror bridgeHost.ts.
       pair: (token) => ipcRenderer.invoke('hiveop:bridge-pair', token) as Promise<boolean>,

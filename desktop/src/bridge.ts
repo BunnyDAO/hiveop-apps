@@ -30,6 +30,8 @@ export interface BridgeHost {
   onOpenTab?: (cb: (url: string, from: number) => void) => () => void;
   bounce?: () => Promise<void>;
   onHandoff?: (cb: (p: HandoffPayload) => void) => () => void;
+  /** The window has no title bar; the site must leave room for the window buttons. */
+  insetTitlebar?: boolean;
 }
 
 /**
@@ -43,7 +45,7 @@ export function isSiteOrigin(locationOrigin: string, siteOrigin: string): boolea
 }
 
 export function buildBridge(version: string, host: BridgeHost = {}): HiveopDesktop {
-  const { onOpenTab, bounce, onHandoff } = host;
+  const { onOpenTab, bounce, onHandoff, insetTitlebar } = host;
   const capabilities: string[] = [];
   const out: { version: string; capabilities: readonly string[]; browser?: HiveopDesktop['browser']; auth?: HiveopDesktop['auth'] } = {
     version,
@@ -65,6 +67,7 @@ export function buildBridge(version: string, host: BridgeHost = {}): HiveopDeskt
         onHandoff((p) => (typeof p?.handoff === 'string' && typeof p?.verifier === 'string' ? cb({ handoff: p.handoff, verifier: p.verifier }) : undefined)),
     });
   }
+  if (insetTitlebar) capabilities.push('inset-titlebar');
   Object.freeze(capabilities);
   return Object.freeze(out);
 }

@@ -11,6 +11,7 @@ import { randomBytes } from 'node:crypto';
 import { attachWindow, declineTakeoverPref, installShell, isTakeoverDeclined, setBridgeStatus, setBridgeUpdatePending, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
 import { createShellUpdater } from './shellUpdaterHost';
 import { createBridgeHost } from './bridgeHost';
+import { windowChrome } from './windowChrome';
 
 const APP_ID = 'io.hiveop.desktop';
 const RETRY_SCHEME = 'hiveop-retry:';
@@ -99,6 +100,7 @@ function showOffline(): void {
 }
 
 function createWindow(): BrowserWindow {
+  const chrome = windowChrome(process.platform);
   const w = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -107,13 +109,14 @@ function createWindow(): BrowserWindow {
     title: 'HiveOp',
     show: !SMOKE,
     backgroundColor: '#0b0d12',
+    ...chrome,
     webPreferences: {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
       webviewTag: true, // native browser views only; nativeBrowser.ts vets every attach
       preload: path.join(__dirname, 'preload.js'),
-      additionalArguments: [`--hiveop-site-origin=${site.origin}`, `--hiveop-version=${app.getVersion()}`],
+      additionalArguments: [`--hiveop-site-origin=${site.origin}`, `--hiveop-version=${app.getVersion()}`, `--hiveop-inset-titlebar=${chrome.titleBarStyle ? 1 : 0}`],
     },
   });
   const wc = w.webContents;

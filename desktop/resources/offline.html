@@ -12,6 +12,9 @@
   p { margin: 0 0 20px; color: #aab0c0; }
   a.btn { display: inline-block; padding: 10px 22px; border-radius: 8px; background: #f5b301; color: #111; font-weight: 600; text-decoration: none; }
   @media (prefers-color-scheme: light) { body { background: #f6f7f9; color: #14161c; } p { color: #555c6b; } }
+  /* No title bar on a Mac: the top strip drags the window. */
+  body::before { content: ""; position: fixed; inset: 0 0 auto 0; height: 28px; -webkit-app-region: drag; }
+  button, a { -webkit-app-region: no-drag; }
 </style>
 </head>
 <body>

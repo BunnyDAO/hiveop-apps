@@ -20,7 +20,7 @@ import { createUpdater, earlyExitRollback } from './bridgeUpdater';
 import { createSupervisor, type BridgeState, type Child, type Discovery } from './bridgeSupervisor';
 import { createTokenStore, isConnectToken } from './bridgeToken';
 import { retryDelayMs } from './backoff';
-import { bridgePath, LOGIN_PATH_SCRIPT, parseLoginPath } from './loginPath';
+import { bridgePath, LOGIN_PATH_SCRIPT, loginShell, parseLoginPath } from './loginPath';
 import type { BridgeView } from './managedBridgeApi';
 import { CLI_PACKAGE, metaUrl, NPM_VERSION, parseDist } from './registry';
 
@@ -527,7 +527,7 @@ export function createBridgeHost(o: BridgeHostOptions): BridgeHost {
 
   return {
     async start() {
-      const p = process.platform === 'win32' ? undefined : process.env.SHELL;
+      const p = loginShell(process.platform, process.env.SHELL, () => os.userInfo().shell);
       if (p) {
         try {
           loginPath = parseLoginPath(await run(p, ['-ilc', LOGIN_PATH_SCRIPT], { timeout: 5000 }));

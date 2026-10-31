@@ -2,6 +2,21 @@
 // managed bridge gets the PATH the user's terminal would have: resolved once
 // from their login shell, with the app's own tools folder first.
 
+/**
+ * The shell to ask for the login PATH, or none (Windows: GUI apps get the full PATH).
+ * dsk-14: an app opened from a Linux menu may have no SHELL; the account's shell
+ * (os.userInfo().shell, from /etc/passwd) is the same one a terminal would start.
+ */
+export function loginShell(platform: NodeJS.Platform, envShell: string | undefined, accountShell: () => string | null | undefined): string | undefined {
+  if (platform === 'win32') return undefined;
+  if (envShell) return envShell;
+  try {
+    return accountShell() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The shell prints the PATH between markers so rc-file chatter cannot corrupt it. */
 export const LOGIN_PATH_PROBE = { start: '__HIVEOP_PATH_START__', end: '__HIVEOP_PATH_END__' } as const;
 

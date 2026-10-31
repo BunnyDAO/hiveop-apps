@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bridgePath, LOGIN_PATH_PROBE, parseLoginPath } from './loginPath';
+import { bridgePath, LOGIN_PATH_PROBE, loginShell, parseLoginPath } from './loginPath';
 
 describe('parseLoginPath', () => {
   it('reads the PATH between the markers, ignoring rc-file noise', () => {
@@ -23,5 +23,21 @@ describe('bridgePath', () => {
   });
   it('drops empty segments and uses the given delimiter', () => {
     expect(bridgePath({ toolsDir: 'C:\\t', loginPath: ';C:\\a;;C:\\a', delimiter: ';' })).toBe('C:\\t;C:\\a');
+  });
+});
+
+describe('loginShell — dsk-14', () => {
+  it('uses $SHELL when set', () => {
+    expect(loginShell('linux', '/bin/zsh', () => '/bin/bash')).toBe('/bin/zsh');
+  });
+  it('an app opened from a Linux menu with no SHELL falls back to the account shell', () => {
+    expect(loginShell('linux', undefined, () => '/usr/bin/fish')).toBe('/usr/bin/fish');
+  });
+  it('no shell anywhere (or the lookup throws) → no probe', () => {
+    expect(loginShell('linux', undefined, () => null)).toBeUndefined();
+    expect(loginShell('darwin', '', () => { throw new Error('no passwd'); })).toBeUndefined();
+  });
+  it('Windows never probes', () => {
+    expect(loginShell('win32', 'C:/bash.exe', () => '/bin/bash')).toBeUndefined();
   });
 });

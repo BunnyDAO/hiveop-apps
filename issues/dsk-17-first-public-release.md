@@ -14,8 +14,8 @@ With the owner's OK: create the public BunnyDAO/hiveop-apps GitHub repo, push, b
 
 ## Acceptance criteria
 
-- [ ] Public repo created only after owner says yes
-- [ ] Release assets downloadable from /download
+- [x] Public repo created only after owner says yes (2026-10-30)
+- [x] Release assets downloadable from /download (v0.1.2: Mac, Windows, Linux AppImage + deb; all 200)
 - [ ] Owner drill passes on Mac; Windows/Linux status stated plainly in the release notes
 
 ## Blocked by

@@ -19,3 +19,17 @@
 **Shell update** — a new release of the app shell itself. Rare; the site updates without one.
 
 **Browser bounce** — sign-in that leaves the app for the system browser (Google) and returns to the app signed in.
+
+**Phone app** — the app shell for iPhone, iPad and Android phones and tablets, published in the App Store and Google Play under Wenrwa LLC. Shows the site's phone or desktop layout by screen width, exactly as a browser would.
+
+**Push notification** — a buzz on the phone sent by the server when a **needs-you item** appears, even with the app closed. Tapping it opens that item. Distinct from the in-app toast and the Inbox badge.
+
+**Needs-you item** — an Inbox item that blocks on a person (a run waiting for approval, an agent asking a question); the same items counted on the Inbox bell. The only push trigger at launch.
+
+**Push device** — one installed phone app that may receive push notifications for one signed-in account. Removed on sign-out, account deletion, or when the store says the token is dead.
+
+**Store link-out** — the "buy on hiveop.io" button a phone app shows only in the US storefront. Elsewhere the phone app shows no purchase buttons and does not mention buying on the web.
+
+**Account deletion** — the user removing their HiveOp account themselves, from the site or a phone app. Solo-owned workspaces go with it; shared workspaces pass to their longest-standing member. Not the same as cancelling a plan.
+
+**Sign in with Apple** — a sign-in provider alongside Google, GitHub and the email code, on the site and in the phone apps.

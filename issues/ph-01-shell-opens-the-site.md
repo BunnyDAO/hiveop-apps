@@ -2,7 +2,7 @@
 id: ph-01
 title: The phone app opens the site
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/phone-apps.md
 repo: hiveop-apps
@@ -26,3 +26,7 @@ Covers user stories 1–7, 42.
 ## Blocked by
 
 None — can start immediately
+
+## Done (2026-11-02)
+
+Landed 117abf3. Verified headless on iPhone 17 (iOS 26.5) and a Pixel 7 emulator (Android 15): site loads, storage survives terminate + relaunch, UA, offline page + auto-recovery, dark splash. Owner drill left (folded into ph-15): email-code sign-in in the app, iPad signed-in desktop layout, resume without reload.

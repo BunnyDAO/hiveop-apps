@@ -2,7 +2,7 @@
 id: ph-05
 title: Sign in with Apple on the website
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/phone-apps.md
 repo: Wenrwa-Marketplace + wenrwa-arena
@@ -24,3 +24,7 @@ Covers user stories 10, 14.
 ## Blocked by
 
 None — can start immediately
+
+## Done (2026-11-02)
+
+Backend bb987ea4 (Marketplace main), site 45cb2fc4 (arena master). Inert until the owner sets APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_SERVICES_ID, APPLE_PRIVATE_KEY (optional APPLE_EXTRA_AUDIENCES for the native bundle id) and registers `<BASE_URL>/api/v1/auth/oauth/apple/callback` as the Services ID return URL. Until then /auth/oauth/providers says apple:false and the button is hidden.

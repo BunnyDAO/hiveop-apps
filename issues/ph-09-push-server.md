@@ -2,7 +2,7 @@
 id: ph-09
 title: Notifications on the server: devices and the needs-you notifier
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/phone-apps.md
 repo: Wenrwa-Marketplace
@@ -24,3 +24,7 @@ Covers user stories 17, 19, 22–24.
 ## Blocked by
 
 None — can start immediately
+
+## Done (2026-11-02)
+
+Marketplace c93d235c + fb6a8570 (re-pinned to the site's current needs-you kinds: crew-proposal and spend-cap-pause behind LAUNCH_CREWS=1, plus agent-attn via a 2-minute stall sweep); arena parity fixture cbee0bfb. Endpoints: POST/DELETE /push/devices, GET/PUT /push/preferences. Senders no-op until APNS_KEY_ID/APNS_TEAM_ID/APNS_KEY_P8 (+APNS_ENV) and FCM_SERVICE_ACCOUNT_JSON are set. Known gaps: site-side stall acks (localStorage) aren't visible to the server, so the phone badge can run higher; spend-cap pauses count 0 server-side; the two fixture copies must be kept identical by hand.

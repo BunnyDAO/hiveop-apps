@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HiveOp</string>
+    <string name="title_activity_main">HiveOp</string>
+    <string name="package_name">io.hiveop.app</string>
+    <string name="custom_url_scheme">io.hiveop.app</string>
+</resources>

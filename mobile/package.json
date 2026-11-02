@@ -1,0 +1,27 @@
+{
+  "name": "hiveop-mobile",
+  "productName": "HiveOp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HiveOp phone app shell (Capacitor, iOS + Android)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepare": "node scripts/prepare-www.mjs",
+    "sync": "npm run prepare && cap sync"
+  },
+  "homepage": "https://hiveop.io",
+  "author": "HiveOp <support@hiveop.io>",
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/splash-screen": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

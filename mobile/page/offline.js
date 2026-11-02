@@ -1,5 +1,3 @@
-import { createRetrier } from './retry.js';
-import { SITE_URL } from './site.js';
 
 const msg = document.getElementById('msg');
 

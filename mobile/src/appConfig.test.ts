@@ -38,7 +38,11 @@ describe('buildConfig', () => {
   });
   it('allows cleartext only when the override is plain http', () => {
     expect(cfg.server?.cleartext).toBe(false);
-    expect(buildConfig({ HIVEOP_SITE_URL: 'http://10.0.2.2:3000' }, '0.1.0').server?.cleartext).toBe(true);
+    const dev = buildConfig({ HIVEOP_SITE_URL: 'http://10.0.2.2:3000' }, '0.1.0');
+    expect(dev.server?.cleartext).toBe(true);
+    // the local offline page (https://localhost on Android) must be able to probe an http dev site
+    expect(dev.android?.allowMixedContent).toBe(true);
+    expect(cfg.android?.allowMixedContent).toBe(false);
   });
   it('appends the app user agent on both platforms', () => {
     expect(cfg.ios?.appendUserAgent).toBe('HiveOpApp/0.1.0 (ios)');
@@ -49,5 +53,8 @@ describe('buildConfig', () => {
     expect(s.backgroundColor).toBe('#0b0d12');
     expect(s.showSpinner).toBe(false);
     expect(cfg.backgroundColor).toBe('#0b0d12');
+  });
+  it('system bars use light icons over the dark app', () => {
+    expect((cfg.plugins?.SystemBars as Record<string, unknown>).style).toBe('DARK');
   });
 });

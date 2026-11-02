@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 // @ts-expect-error plain browser module, no types
-import { createRetrier, retryDelayMs } from '../www/retry.js';
+import { createRetrier, retryDelayMs } from '../page/retry.js';
 
 describe('retryDelayMs', () => {
   it('backs off 2s, 4s, 8s ... capped at 30s', () => {

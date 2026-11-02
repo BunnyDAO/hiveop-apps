@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const html = readFileSync(new URL('../www/offline.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../page/offline.html', import.meta.url), 'utf8');
 
 describe('offline page', () => {
   it('says Can\'t reach HiveOp with a Try again button', () => {

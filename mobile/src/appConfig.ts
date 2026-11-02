@@ -31,6 +31,7 @@ export function userAgentSuffix(version: string, platform: 'ios' | 'android'): s
 /** The Capacitor config. `version` comes from mobile/package.json, the one source of truth. */
 export function buildConfig(env: Record<string, string | undefined>, version: string): CapacitorConfig {
   const site = resolveSiteUrl(env);
+  const plainHttp = new URL(site.url).protocol === 'http:';
   return {
     appId: 'io.hiveop.app',
     appName: 'HiveOp',
@@ -40,16 +41,17 @@ export function buildConfig(env: Record<string, string | undefined>, version: st
       url: site.url,
       errorPath: 'offline.html',
       allowNavigation: inAppHosts({ siteOrigin: site.origin }),
-      cleartext: new URL(site.url).protocol === 'http:',
+      cleartext: plainHttp,
     },
     ios: { appendUserAgent: userAgentSuffix(version, 'ios'), contentInset: 'never' },
-    android: { appendUserAgent: userAgentSuffix(version, 'android') },
+    android: { appendUserAgent: userAgentSuffix(version, 'android'), allowMixedContent: plainHttp },
     plugins: {
       SplashScreen: {
         backgroundColor: BRAND_DARK,
         launchAutoHide: true,
         showSpinner: false,
       },
+      SystemBars: { style: 'DARK' },
     },
   };
 }

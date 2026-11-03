@@ -2,7 +2,7 @@
 id: ph-10
 title: Notifications in the app: ask, switch, tap to open
 type: AFK
-status: open
+status: done
 blocked_by: [ph-01, ph-02, ph-09]
 parent: docs/prd/phone-apps.md
 repo: hiveop-apps + wenrwa-arena
@@ -26,3 +26,7 @@ Covers user stories 15, 16, 18, 20, 21.
 - ph-01
 - ph-02
 - ph-09
+
+## Done (2026-11-02)
+
+Shell 6887da2, site 46e59218. Capabilities now [open-sheet, auth-bounce, storefront, push, open-settings]. iOS: simctl push + tap cold/background opens the item path, bad paths → /, token reached a stubbed /push/devices. Android: tap intents proven; no FCM token on the headless emulator (SERVICE_NOT_AVAILABLE). google-services.json is git-ignored, fetched by `npm run fetch:firebase`. Owner: APNs key + Push capability on io.hiveop.app, FCM_SERVICE_ACCOUNT_JSON on the backend; drill real tokens, iOS foreground tap, sign-out delete.

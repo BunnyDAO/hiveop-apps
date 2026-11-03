@@ -19,5 +19,11 @@ public class MainActivity extends BridgeActivity {
         if (getResources().getConfiguration().smallestScreenWidthDp < 600) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         }
+        // Phone shell: outside pages open in a sheet, never in the main WebView; bridge on the site only.
+        HiveOpShell shell = HiveOpShell.load(this);
+        if (shell != null && getBridge() != null) {
+            shell.installBridge(getBridge().getWebView());
+            getBridge().setWebViewClient(new HiveOpShell.Client(getBridge(), shell));
+        }
     }
 }

@@ -1,6 +1,7 @@
 // Writes www/site.js so the local offline page knows which site to retry.
 // Run by `npm run sync` before `cap sync`. Needs Node 22.6+ (type stripping).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { buildShellAsset } from '../src/shellAsset.ts';
 import { resolveSiteUrl } from '../src/appConfig.ts';
 
 const site = resolveSiteUrl(process.env);
@@ -13,6 +14,11 @@ const html = readFileSync(new URL('../page/offline.html', import.meta.url), 'utf
 mkdirSync(new URL('../www/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../www/offline.html', import.meta.url), html);
 console.log(`www/offline.html -> retries ${site.url}`);
+
+// Native navigation policy data + the shell-bridge script (read by both native shells at startup).
+const { version: shellVersion } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+writeFileSync(new URL('../www/hiveop-shell.json', import.meta.url), JSON.stringify(buildShellAsset(process.env, shellVersion)));
+console.log('www/hiveop-shell.json written');
 
 // One version source: mobile/package.json -> Xcode MARKETING_VERSION + Android versionName.
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));

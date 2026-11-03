@@ -22,6 +22,12 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HiveOp uses the microphone for dictation and voice.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>HiveOp uses the camera for photos you choose to share.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HiveOp lets you pick photos to upload.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

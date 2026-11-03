@@ -1,0 +1,27 @@
+{
+  "siteOrigin": "https://app.hiveop.io",
+  "origin": [
+    ["site origin", "https://app.hiveop.io", true],
+    ["site origin with trailing slash (Android reports this)", "https://app.hiveop.io/", true],
+    ["site origin with path", "https://app.hiveop.io/w/abc?x=1", true],
+    ["backend api host is not the site", "https://api.hiveop.io", false],
+    ["lookalike suffix", "https://app.hiveop.io.evil.com", false],
+    ["lookalike prefix", "https://evilapp.hiveop.io", false],
+    ["other port", "https://app.hiveop.io:8443", false],
+    ["http downgrade", "http://app.hiveop.io", false],
+    ["userinfo trick", "https://app.hiveop.io@evil.com", false],
+    ["null origin", "null", false],
+    ["empty", "", false],
+    ["garbage", "not a url", false],
+    ["file scheme", "file:///", false]
+  ],
+  "resources": [
+    ["audio only", ["audio"], true],
+    ["video only", ["video"], true],
+    ["audio and video", ["audio", "video"], true],
+    ["nothing asked", [], false],
+    ["protected media id", ["protected-media-id"], false],
+    ["midi sysex", ["midi-sysex"], false],
+    ["audio plus an unknown resource", ["audio", "protected-media-id"], false]
+  ]
+}

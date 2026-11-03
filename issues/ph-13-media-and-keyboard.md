@@ -2,7 +2,7 @@
 id: ph-13
 title: Mic, camera, photos and terminal keyboard in both apps
 type: AFK
-status: open
+status: done
 blocked_by: [ph-01]
 parent: docs/prd/phone-apps.md
 repo: hiveop-apps
@@ -23,3 +23,7 @@ Covers user stories 36–37.
 ## Blocked by
 
 - ph-01
+
+## Done (2026-11-02)
+
+Branch valk/ph13. Mic/camera answered for the site origin only, after the OS grant (Android: `SiteWebChromeClient` over Capacitor's client; iOS: `MediaGate` WKUIDelegate wrapper in `MainViewController`). Rule + shared fixture: `mobile/src/mediaPolicy.ts`, `MediaPolicy.java`. Usage strings and RECORD_AUDIO/CAMERA added. Keyboard: Android `adjustResize` (layout viewport shrinks, as Chrome); iOS no resize (visualViewport shrinks, as Safari), no Keyboard plugin. Verified headless on a Pixel emulator and iPhone 17 simulator against a local test page. Not driven: iOS file picker and camera-capture inputs (no tap tool); owner drill folds into ph-15.

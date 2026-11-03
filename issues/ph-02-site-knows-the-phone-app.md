@@ -2,7 +2,7 @@
 id: ph-02
 title: The site knows it's inside the phone app
 type: AFK
-status: open
+status: done
 blocked_by: []
 parent: docs/prd/phone-apps.md
 repo: wenrwa-arena
@@ -24,3 +24,7 @@ Covers user stories 8.
 ## Blocked by
 
 None — can start immediately
+
+## Done (2026-11-02)
+
+Arena 564fbeba: lib/appShell.ts readAppShell() is the only reader of window.hiveopApp / window.hiveopDesktop (AST guard test). Install banners hidden in either app; Help shows "HiveOp app <version> (<platform>)". Not yet exercised with a real shell injecting the global (ph-03 adds it).

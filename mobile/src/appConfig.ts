@@ -52,6 +52,8 @@ export function buildConfig(env: Record<string, string | undefined>, version: st
         showSpinner: false,
       },
       SystemBars: { style: 'DARK' },
+      // Foreground pushes still show and set the badge; the payload's badge is the user's needs-you count.
+      PushNotifications: { presentationOptions: ['badge', 'sound', 'alert'] },
     },
   };
 }

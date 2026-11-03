@@ -2,6 +2,7 @@ import UIKit
 import WebKit
 import SafariServices
 import StoreKit
+import UserNotifications
 import Capacitor
 
 /// Mirror of src/navPolicy.ts `decide`, fed by public/hiveop-shell.json (written by `npm run prepare`).
@@ -66,8 +67,18 @@ final class SheetPresenter {
 public final class HiveOpShellPlugin: CAPInstancePlugin, CAPBridgedPlugin {
     public let identifier = "HiveOpShellPlugin"
     public let jsName = "HiveOpShell"
-    public let pluginMethods: [CAPPluginMethod] = []
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
+    ]
     var asset: ShellAsset?
+
+    /// This app's page in the phone's Settings (where a blocked notification switch is turned back on).
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let url = URL(string: UIApplication.openSettingsURLString) else { call.reject("no settings url"); return }
+            UIApplication.shared.open(url) { _ in call.resolve() }
+        }
+    }
 
     @objc public override func shouldOverrideLoad(_ navigationAction: WKNavigationAction) -> NSNumber? {
         guard let asset = asset, let url = navigationAction.request.url else { return nil }
@@ -167,6 +178,8 @@ class HiveOpViewController: MainViewController {
     private let asset = ShellAsset.load()
     private var uiDelegate: NewWindowUIDelegate?
     private var authHandler: AuthBounceHandler?
+    private var pushOpener: PushOpener?
+    private var pushRelay: PushTapRelay?
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -191,5 +204,14 @@ class HiveOpViewController: MainViewController {
         let proxy = NewWindowUIDelegate(original: webView.uiDelegate, asset: asset, viewController: self)
         uiDelegate = proxy
         webView.uiDelegate = proxy
+
+        // A tapped notification opens its (sanitised) path in this web view.
+        if let router = bridge?.notificationRouter, UNUserNotificationCenter.current().delegate === router {
+            let opener = PushOpener(webView: webView, siteOrigin: asset.siteOrigin)
+            let relay = PushTapRelay(inner: router, onOpen: { [weak opener] path in opener?.open(path) })
+            pushOpener = opener
+            pushRelay = relay
+            UNUserNotificationCenter.current().delegate = relay
+        }
     }
 }

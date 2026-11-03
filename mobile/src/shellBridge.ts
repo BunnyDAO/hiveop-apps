@@ -6,10 +6,11 @@
  * The site feature-detects by capability, never by version. Later slices append capabilities.
  */
 import { ALPHA3_TO_ALPHA2 } from './countryCodes.ts';
+import { PUSH_BRIDGE_JS } from './pushBridge.ts';
 
 export type Platform = 'ios' | 'android';
 
-export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront'];
+export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings'];
 
 export interface Bridge {
   version: string;
@@ -46,7 +47,7 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
   return `(function(){
   "use strict";
   if (window.location.origin !== ${site} || window.hiveopApp) return;
-  var caps = Object.freeze(${caps}.slice());
+  var caps = Object.freeze(${caps}.filter(function (c) { return !(c === "push" && window.__hiveopNoPush === true); }));${PUSH_BRIDGE_JS}
   var A3 = ${alpha3};
   var pending = {}, seq = 0, listening = false;
   // The native channel, looked up when used (Android installs its object at document start,
@@ -97,6 +98,8 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
     }
   };
   ${authBounceMembers(opts.platform)}
+  var more = pushMembers(window, caps, ${platform});
+  for (var k in more) members[k] = more[k];
   var bridge = Object.freeze(members);
   Object.defineProperty(window, "hiveopApp", { value: bridge, writable: false, configurable: false, enumerable: true });
 })();`;

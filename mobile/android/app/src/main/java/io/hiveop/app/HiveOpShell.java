@@ -33,21 +33,28 @@ final class HiveOpShell {
     final List<String> authHosts = new ArrayList<>();
     final String bridgeScript;
 
-    private HiveOpShell(JSONObject json) throws Exception {
+    private HiveOpShell(JSONObject json, boolean pushAvailable) throws Exception {
         siteOrigin = json.getString("siteOrigin");
         oauthApi = json.optString("oauthApi", "https://api.wenrwa.com/api/v1");
         JSONArray hosts = json.getJSONArray("authHosts");
         for (int i = 0; i < hosts.length(); i++) authHosts.add(hosts.getString(i));
-        bridgeScript = json.getJSONObject("bridgeScripts").getString("android");
+        String script = json.getJSONObject("bridgeScripts").getString("android");
+        // No Firebase config in this build (google-services.json absent): push is simply unavailable.
+        bridgeScript = pushAvailable ? script : "window.__hiveopNoPush=true;" + script;
     }
 
     static HiveOpShell load(Context context) {
         try (InputStream in = context.getAssets().open("public/hiveop-shell.json")) {
             byte[] bytes = in.readAllBytes();
-            return new HiveOpShell(new JSONObject(new String(bytes, "UTF-8")));
+            return new HiveOpShell(new JSONObject(new String(bytes, "UTF-8")), pushConfigured(context));
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** The google-services plugin writes google_app_id into the build only when google-services.json is present. */
+    static boolean pushConfigured(Context context) {
+        return context.getResources().getIdentifier("google_app_id", "string", context.getPackageName()) != 0;
     }
 
     static String originOf(Uri u) {

@@ -30,7 +30,7 @@ describe('buildBridge', () => {
     expect(b.has(undefined as unknown as string)).toBe(false);
   });
   it('launch capabilities include open-sheet, auth-bounce and storefront', () => {
-    expect(BRIDGE_CAPABILITIES).toEqual(expect.arrayContaining(['open-sheet', 'auth-bounce', 'storefront']));
+    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings']);
   });
 });
 
@@ -60,11 +60,11 @@ describe('buildBridgeScript', () => {
   it('does not let the page mutate has() results by editing capabilities', () => {
     const w = run(SITE);
     try {
-      w.hiveopApp.capabilities.push('push');
+      w.hiveopApp.capabilities.push('teleport');
     } catch {
       /* frozen */
     }
-    expect(w.hiveopApp.has('push')).toBe(false);
+    expect(w.hiveopApp.has('teleport')).toBe(false);
   });
   it('is not overwritable', () => {
     const w = run(SITE);

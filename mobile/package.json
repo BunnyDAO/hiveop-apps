@@ -8,7 +8,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "node scripts/prepare-www.mjs",
-    "sync": "npm run prepare && cap sync"
+    "sync": "npm run prepare && cap sync",
+    "fetch:firebase": "bash scripts/fetch-google-services.sh"
   },
   "homepage": "https://hiveop.io",
   "author": "HiveOp <support@hiveop.io>",
@@ -16,6 +17,7 @@
     "@capacitor/android": "8.6.0",
     "@capacitor/core": "8.6.0",
     "@capacitor/ios": "8.6.0",
+    "@capacitor/push-notifications": "^8.1.3",
     "@capacitor/splash-screen": "8.0.2"
   },
   "devDependencies": {

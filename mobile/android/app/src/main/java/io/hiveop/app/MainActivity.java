@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
         // ph-04: the secure sheet's return. Only a valid hiveop://auth link for a pending bounce delivers.
         Uri data = intent == null ? null : intent.getData();
         if (auth != null && data != null && auth.onReturn(data.toString())) authSheetOpen = false;
+        openPushPath(intent);
     }
 
     @Override
@@ -40,6 +41,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(HiveOpShellPlugin.class);
         super.onCreate(savedInstanceState);
         // Mic/camera for the site origin only (after the OS grant).
         Bridge b = getBridge();
@@ -59,6 +61,25 @@ public class MainActivity extends BridgeActivity {
             getBridge().setWebViewClient(new HiveOpShell.Client(getBridge(), shell));
             installAuthBounce(shell);
         }
+
+        // Launched by tapping a notification: open its path.
+        if (savedInstanceState == null) openPushPath(getIntent());
+    }
+
+    /**
+     * A tapped FCM notification relaunches or resumes the app with its data as intent extras
+     * (the system tray shows it; the app need not be running). Opens the sanitised `path` in the
+     * web view. Only intents FCM delivered are considered.
+     */
+    private void openPushPath(Intent intent) {
+        if (intent == null || !intent.hasExtra("google.message_id")) return;
+        Bridge b = getBridge();
+        if (b == null || b.getServerUrl() == null) return;
+        String site = MediaPolicy.originOf(b.getServerUrl());
+        if (site == null) return;
+        String target = PushPath.targetUrl(intent.getStringExtra("path"), site);
+        intent.removeExtra("google.message_id");
+        b.getWebView().loadUrl(target);
     }
 
     /** ph-04: page -> native bridge for the secure sign-in sheet, reachable from the site origin only. */

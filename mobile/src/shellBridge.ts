@@ -7,7 +7,7 @@
  */
 export type Platform = 'ios' | 'android';
 
-export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet'];
+export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce'];
 
 export interface Bridge {
   version: string;
@@ -44,12 +44,71 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
   "use strict";
   if (window.location.origin !== ${site} || window.hiveopApp) return;
   var caps = Object.freeze(${caps}.slice());
-  var bridge = Object.freeze({
+  var members = {
     version: ${version},
     platform: ${platform},
     capabilities: caps,
     has: function (c) { return caps.indexOf(c) !== -1; }
-  });
+  };
+  ${authBounceMembers(opts.platform)}
+  var bridge = Object.freeze(members);
   Object.defineProperty(window, "hiveopApp", { value: bridge, writable: false, configurable: false, enumerable: true });
 })();`;
+}
+
+/**
+ * ph-04: `bounce(provider)` asks the native shell to open the secure sheet and resolves
+ * 'opened' (a handoff came back; it is then delivered to onHandoff with the verifier the shell
+ * kept) or 'cancelled'. iOS talks to a WKScriptMessageHandler with reply; Android to a
+ * WebMessageListener object scoped to the site origin. The verifier never touches page storage.
+ */
+function authBounceMembers(platform: Platform): string {
+  const send =
+    platform === 'ios'
+      ? `function send(provider) {
+      var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.hiveopAuth;
+      if (!h) return Promise.reject(new Error("auth bounce unavailable"));
+      return Promise.resolve(h.postMessage({ provider: provider }));
+    }`
+      : `var waiting = {}, nextId = 1, wired = false;
+    function wire(n) {
+      if (wired) return;
+      wired = true;
+      n.onmessage = function (e) {
+        var m; try { m = JSON.parse(e.data); } catch (_) { return; }
+        var w = m && waiting[m.id];
+        if (w) { delete waiting[m.id]; w(m); }
+      };
+    }
+    function send(provider) {
+      var n = window.hiveopAuthNative;
+      if (!n || typeof n.postMessage !== "function") return Promise.reject(new Error("auth bounce unavailable"));
+      wire(n);
+      return new Promise(function (resolve) {
+        var id = nextId++;
+        waiting[id] = resolve;
+        n.postMessage(JSON.stringify({ id: id, provider: provider }));
+      });
+    }`;
+  return `if (caps.indexOf("auth-bounce") !== -1) {
+    var listeners = [];
+    ${send}
+    members.bounce = function (provider) {
+      if (provider !== "google" && provider !== "github") return Promise.reject(new Error("unknown provider"));
+      return send(provider).then(function (r) {
+        if (r && r.result === "cancelled") return "cancelled";
+        if (r && r.result === "handoff" && typeof r.handoff === "string" && typeof r.verifier === "string") {
+          var p = { handoff: r.handoff, verifier: r.verifier };
+          listeners.slice().forEach(function (f) { try { f(p); } catch (_) {} });
+          return "opened";
+        }
+        throw new Error("bad auth reply");
+      });
+    };
+    members.onHandoff = function (cb) {
+      if (typeof cb !== "function") return function () {};
+      listeners.push(cb);
+      return function () { var i = listeners.indexOf(cb); if (i !== -1) listeners.splice(i, 1); };
+    };
+  }`;
 }

@@ -29,8 +29,9 @@ describe('buildBridge', () => {
     expect(b.has('push')).toBe(false);
     expect(b.has(undefined as unknown as string)).toBe(false);
   });
-  it('launch capabilities are just open-sheet for now', () => {
-    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet']);
+  it('launch capabilities include open-sheet and auth-bounce', () => {
+    expect(BRIDGE_CAPABILITIES).toContain('open-sheet');
+    expect(BRIDGE_CAPABILITIES).toContain('auth-bounce');
   });
 });
 
@@ -44,7 +45,7 @@ describe('buildBridgeScript', () => {
     const w = run(SITE);
     expect(w.hiveopApp.version).toBe('0.1.0');
     expect(w.hiveopApp.platform).toBe('android');
-    expect(w.hiveopApp.capabilities).toEqual(['open-sheet']);
+    expect(w.hiveopApp.capabilities).toEqual([...BRIDGE_CAPABILITIES]);
     expect(w.hiveopApp.has('open-sheet')).toBe(true);
     expect(w.hiveopApp.has('nope')).toBe(false);
   });
@@ -79,5 +80,79 @@ describe('buildBridgeScript', () => {
     const s = buildBridgeScript({ siteOrigin: SITE, version: '1.0"</script>', platform: 'ios' });
     expect(s).not.toContain('</script>');
     expect((vm(s, SITE) as any).hiveopApp.version).toBe('1.0"</script>');
+  });
+});
+
+describe('auth-bounce members', () => {
+  const HO = { handoff: 'abcdefghijklmnop1234', verifier: 'VER' };
+  const script = (platform: 'ios' | 'android') => buildBridgeScript({ siteOrigin: SITE, version: '1', platform });
+
+  it('ios: bounce posts the provider to the native handler and resolves its result', async () => {
+    const posted: unknown[] = [];
+    const w = vm(script('ios'), SITE, {
+      webkit: { messageHandlers: { hiveopAuth: { postMessage: async (m: unknown) => (posted.push(m), { result: 'cancelled' }) } } },
+    }) as any;
+    expect(await w.hiveopApp.bounce('github')).toBe('cancelled');
+    expect(posted).toEqual([{ provider: 'github' }]);
+  });
+
+  it('ios: a returned handoff resolves opened and reaches onHandoff with the verifier', async () => {
+    const w = vm(script('ios'), SITE, {
+      webkit: { messageHandlers: { hiveopAuth: { postMessage: async () => ({ result: 'handoff', ...HO }) } } },
+    }) as any;
+    const got: unknown[] = [];
+    w.hiveopApp.onHandoff((p: unknown) => got.push(p));
+    expect(await w.hiveopApp.bounce('google')).toBe('opened');
+    expect(got).toEqual([HO]);
+  });
+
+  it('onHandoff unsubscribes', async () => {
+    const w = vm(script('ios'), SITE, {
+      webkit: { messageHandlers: { hiveopAuth: { postMessage: async () => ({ result: 'handoff', ...HO }) } } },
+    }) as any;
+    const got: unknown[] = [];
+    const off = w.hiveopApp.onHandoff((p: unknown) => got.push(p));
+    off();
+    await w.hiveopApp.bounce('google');
+    expect(got).toEqual([]);
+  });
+
+  it('android: correlates the native message by id', async () => {
+    const native: any = {
+      postMessage(raw: string) {
+        const m = JSON.parse(raw);
+        expect(m.provider).toBe('google');
+        queueMicrotask(() => native.onmessage({ data: JSON.stringify({ id: m.id, result: 'handoff', ...HO }) }));
+      },
+    };
+    const w = vm(script('android'), SITE, { hiveopAuthNative: native }) as any;
+    const got: unknown[] = [];
+    w.hiveopApp.onHandoff((p: unknown) => got.push(p));
+    expect(await w.hiveopApp.bounce('google')).toBe('opened');
+    expect(got).toEqual([HO]);
+  });
+
+  it('android: cancelled', async () => {
+    const native: any = {
+      postMessage(raw: string) {
+        const m = JSON.parse(raw);
+        queueMicrotask(() => native.onmessage({ data: JSON.stringify({ id: m.id, result: 'cancelled' }) }));
+      },
+    };
+    const w = vm(script('android'), SITE, { hiveopAuthNative: native }) as any;
+    expect(await w.hiveopApp.bounce('github')).toBe('cancelled');
+  });
+
+  it('rejects an unknown provider and a missing transport', async () => {
+    const w = vm(script('ios'), SITE) as any;
+    await expect(w.hiveopApp.bounce('google')).rejects.toThrow();
+    await expect(w.hiveopApp.bounce('apple')).rejects.toThrow();
+  });
+
+  it('a malformed native reply is a rejection, not a handoff', async () => {
+    const w = vm(script('ios'), SITE, {
+      webkit: { messageHandlers: { hiveopAuth: { postMessage: async () => ({ result: 'handoff', handoff: 5 }) } } },
+    }) as any;
+    await expect(w.hiveopApp.bounce('google')).rejects.toThrow();
   });
 });

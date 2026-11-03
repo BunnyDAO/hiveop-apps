@@ -8,6 +8,11 @@ describe('buildShellAsset', () => {
     expect(a.siteOrigin).toBe('https://app.hiveop.io');
     expect(a.authHosts).toEqual(['api.hiveop.io', 'api.wenrwa.com']);
   });
+  it('carries the backend OAuth api for the sign-in sheet, overridable', () => {
+    expect(a.oauthApi).toBe('https://api.wenrwa.com/api/v1');
+    expect(buildShellAsset({ HIVEOP_OAUTH_API: 'http://10.0.2.2:9/api/v1' }, '1').oauthApi).toBe('http://10.0.2.2:9/api/v1');
+    expect(buildShellAsset({ HIVEOP_OAUTH_API: 'javascript:1' }, '1').oauthApi).toBe('https://api.wenrwa.com/api/v1');
+  });
   it('follows HIVEOP_SITE_URL', () => {
     expect(buildShellAsset({ HIVEOP_SITE_URL: 'http://localhost:3000/x' }, '1').siteOrigin).toBe('http://localhost:3000');
   });

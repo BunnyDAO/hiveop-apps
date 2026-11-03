@@ -2,7 +2,7 @@
 id: ph-04
 title: Google and GitHub sign-in through the secure sheet
 type: AFK
-status: open
+status: done
 blocked_by: [ph-01, ph-02]
 parent: docs/prd/phone-apps.md
 repo: hiveop-apps + wenrwa-arena
@@ -25,3 +25,7 @@ Covers user stories 11–12.
 
 - ph-01
 - ph-02
+
+## Done (2026-11-02)
+
+Shell 70c71d8, site 277a1bec. Android proven end to end against a fake backend (start URL with S256 challenge → hiveop://auth → onHandoff → exchange with matching verifier; cancel → panel normal). iOS reached the ASWebAuthenticationSession consent alert only. Owner drill (ph-15): real Google + GitHub sign-in on both phones, cancel, iOS consent → sign-in, email code in the app.

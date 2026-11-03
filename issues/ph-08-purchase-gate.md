@@ -2,7 +2,7 @@
 id: ph-08
 title: Buying follows the store rules (US link-out, hidden elsewhere)
 type: AFK
-status: open
+status: done
 blocked_by: [ph-01, ph-02]
 parent: docs/prd/phone-apps.md
 repo: wenrwa-arena + hiveop-apps
@@ -25,3 +25,7 @@ Covers user stories 26–28.
 
 - ph-01
 - ph-02
+
+## Done (2026-11-02)
+
+Shell e252da3, site 5f39b473. purchaseMode gates 19 surfaces (81 render tests); first paint is the phone-safe answer, browsers switch to buy after mount. Link-out → https://hiveop.io/?from=app#pricing in the system browser. Android adds Play Billing 7.1.1 (BILLING permission) for the country read only. Judgement calls: spend-cap raises ungated; delete-account Pay now hidden outside US; header billing button dropped in link-out. Owner drill: real storefront on Play/App Store devices; link-out review in US.

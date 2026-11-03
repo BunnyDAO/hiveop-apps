@@ -2,7 +2,7 @@
 id: ph-03
 title: GitHub install, billing portal and outside links open in an in-app sheet
 type: AFK
-status: open
+status: done
 blocked_by: [ph-01]
 parent: docs/prd/phone-apps.md
 repo: hiveop-apps
@@ -23,3 +23,7 @@ Covers user stories 38–39.
 ## Blocked by
 
 - ph-01
+
+## Done (2026-11-02)
+
+ac04fd7: outside http(s) → sheet (SFSafariViewController / Custom Tabs), other schemes denied, window.open/_blank caught on both; shell injects window.hiveopApp {version, platform, capabilities:[open-sheet], has} on the site origin only. Tested on a local fake site, not app.hiveop.io. For the ph-15 drill: iOS sheet close by real tap; Android BranchPreviewButton (window.open(\"\") then set location) actually opens the preview; signed-in GitHub App install round trip.

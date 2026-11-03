@@ -2,7 +2,7 @@
 id: ph-12
 title: Delete account screen (site and apps)
 type: AFK
-status: open
+status: done
 blocked_by: [ph-11]
 parent: docs/prd/phone-apps.md
 repo: wenrwa-arena
@@ -23,3 +23,7 @@ Covers user stories 29, 32.
 ## Blocked by
 
 - ph-11
+
+## Done (2026-11-02)
+
+Arena 6b512bde: Settings → Account → Delete account (phone /you/account and the desktop settings dialog share it); /account-deleted page live. Verified headless at 320/390 with a stubbed proxy. Not verified: the desktop dialog itself and its Pay-now pane switch; no real session.

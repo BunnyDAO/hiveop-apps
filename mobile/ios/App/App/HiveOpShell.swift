@@ -9,6 +9,7 @@ enum NavDecision { case inApp, sheet, deny }
 struct ShellAsset: Decodable {
     let siteOrigin: String
     let authHosts: [String]
+    let oauthApi: String?
     let bridgeScripts: [String: String]
 
     static func load() -> ShellAsset? {
@@ -111,6 +112,7 @@ final class NewWindowUIDelegate: NSObject, WKUIDelegate {
 class HiveOpViewController: MainViewController {
     private let asset = ShellAsset.load()
     private var uiDelegate: NewWindowUIDelegate?
+    private var authHandler: AuthBounceHandler?
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -125,6 +127,11 @@ class HiveOpViewController: MainViewController {
         let plugin = HiveOpShellPlugin()
         plugin.asset = asset
         bridge?.registerPluginInstance(plugin)
+        // ph-04: sign-in sheet. The handler refuses any frame that is not the site's main frame.
+        let auth = AuthBounceHandler(oauthApi: asset.oauthApi ?? "https://api.wenrwa.com/api/v1",
+                                     siteOrigin: asset.siteOrigin, viewController: self)
+        authHandler = auth
+        webView.configuration.userContentController.addScriptMessageHandler(auth, contentWorld: .page, name: "hiveopAuth")
         let proxy = NewWindowUIDelegate(original: webView.uiDelegate, asset: asset, viewController: self)
         uiDelegate = proxy
         webView.uiDelegate = proxy

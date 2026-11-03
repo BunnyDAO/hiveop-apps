@@ -27,11 +27,13 @@ final class HiveOpShell {
     enum Decision { IN_APP, SHEET, DENY }
 
     final String siteOrigin;
+    final String oauthApi;
     final List<String> authHosts = new ArrayList<>();
     final String bridgeScript;
 
     private HiveOpShell(JSONObject json) throws Exception {
         siteOrigin = json.getString("siteOrigin");
+        oauthApi = json.optString("oauthApi", "https://api.wenrwa.com/api/v1");
         JSONArray hosts = json.getJSONArray("authHosts");
         for (int i = 0; i < hosts.length(); i++) authHosts.add(hosts.getString(i));
         bridgeScript = json.getJSONObject("bridgeScripts").getString("android");

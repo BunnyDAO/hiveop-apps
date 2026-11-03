@@ -1,11 +1,43 @@
 package io.hiveop.app;
 
 import android.content.pm.ActivityInfo;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+import java.security.SecureRandom;
+import java.util.Collections;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private HiveOpAuth auth;
+    private boolean authSheetOpen;
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // ph-04: the secure sheet's return. Only a valid hiveop://auth link for a pending bounce delivers.
+        Uri data = intent == null ? null : intent.getData();
+        if (auth != null && data != null && auth.onReturn(data.toString())) authSheetOpen = false;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Back in front with the sheet gone and no auth return seen: the user closed it (cancel).
+        if (auth != null && authSheetOpen) {
+            authSheetOpen = false;
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (auth != null) auth.onResumedWithoutReturn();
+            }, 400);
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -24,6 +56,26 @@ public class MainActivity extends BridgeActivity {
         if (shell != null && getBridge() != null) {
             shell.installBridge(getBridge().getWebView());
             getBridge().setWebViewClient(new HiveOpShell.Client(getBridge(), shell));
+            installAuthBounce(shell);
         }
+    }
+
+    /** ph-04: page -> native bridge for the secure sign-in sheet, reachable from the site origin only. */
+    private void installAuthBounce(HiveOpShell shell) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return;
+        auth = new HiveOpAuth(shell.oauthApi, shell.siteOrigin, url -> {
+            CustomTabsIntent tab = new CustomTabsIntent.Builder().setShowTitle(true).build();
+            authSheetOpen = true;
+            tab.launchUrl(this, Uri.parse(url));
+        }, new SecureRandom());
+        WebViewCompat.addWebMessageListener(
+            getBridge().getWebView(),
+            "hiveopAuthNative",
+            Collections.singleton(shell.siteOrigin),
+            (view, message, sourceOrigin, isMainFrame, replyProxy) -> {
+                String data = message.getData();
+                if (!isMainFrame || data == null) return;
+                auth.start(data, replyProxy::postMessage);
+            });
     }
 }

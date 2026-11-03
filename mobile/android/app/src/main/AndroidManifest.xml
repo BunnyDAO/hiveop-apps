@@ -23,6 +23,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- ph-04: the sign-in sheet's return (/desktop-return forwards to hiveop://auth?handoff=…). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hiveop" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider

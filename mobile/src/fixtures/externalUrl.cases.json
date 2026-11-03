@@ -1,0 +1,21 @@
+{
+  "siteOrigin": "https://app.hiveop.io",
+  "cases": [
+    ["web pricing", "https://hiveop.io/?from=app#pricing", true],
+    ["web checkout", "https://hiveop.io/checkout", true],
+    ["another https host", "https://example.com/pay", true],
+    ["https on a custom port", "https://hiveop.io:8443/", true],
+    ["plain http", "http://hiveop.io/", false],
+    ["the site itself stays in the app", "https://app.hiveop.io/you/billing", false],
+    ["the backend auth chain stays in the app", "https://api.hiveop.io/x", false],
+    ["javascript", "javascript:alert(1)", false],
+    ["android intent", "intent://scan/#Intent;scheme=zxing;end", false],
+    ["file", "file:///etc/passwd", false],
+    ["data", "data:text/html,hi", false],
+    ["app deep link", "hiveop://open", false],
+    ["scheme-relative", "//hiveop.io/", false],
+    ["credentials in the URL", "https://user:pw@hiveop.io/", false],
+    ["empty", "", false],
+    ["not a url", "not a url", false]
+  ]
+}

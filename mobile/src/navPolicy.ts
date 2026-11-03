@@ -43,3 +43,19 @@ export function decide(rawUrl: string, ctx: NavContext): Decision {
 export function inAppHosts(ctx: NavContext): string[] {
   return [new URL(ctx.siteOrigin).hostname, ...AUTH_HOSTS];
 }
+
+/**
+ * `openExternal(url)` (storefront capability): may this URL leave the app for the system browser?
+ * https only, no credentials, and only what `decide` sends out of the app under a link-out intent
+ * (so the site itself and the auth chain stay in-app). The native shells mirror this.
+ */
+export function canLinkOut(rawUrl: string, siteOrigin: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:' || u.username !== '' || u.password !== '') return false;
+  return decide(rawUrl, { siteOrigin, linkOut: true }) === 'system-browser';
+}

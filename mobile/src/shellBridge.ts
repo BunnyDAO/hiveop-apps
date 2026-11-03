@@ -5,9 +5,11 @@
  * Injected before the site's scripts run, and only when the page origin is the site origin.
  * The site feature-detects by capability, never by version. Later slices append capabilities.
  */
+import { ALPHA3_TO_ALPHA2 } from './countryCodes.ts';
+
 export type Platform = 'ios' | 'android';
 
-export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce'];
+export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront'];
 
 export interface Bridge {
   version: string;
@@ -40,15 +42,59 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
   const version = JSON.stringify(opts.version).replace(/</g, '\\u003c');
   const platform = JSON.stringify(opts.platform);
   const caps = JSON.stringify(BRIDGE_CAPABILITIES);
+  const alpha3 = JSON.stringify(ALPHA3_TO_ALPHA2);
   return `(function(){
   "use strict";
   if (window.location.origin !== ${site} || window.hiveopApp) return;
   var caps = Object.freeze(${caps}.slice());
+  var A3 = ${alpha3};
+  var pending = {}, seq = 0, listening = false;
+  // The native channel, looked up when used (Android installs its object at document start,
+  // possibly after this script). iOS replies through the returned Promise; Android through onmessage.
+  function call(method, arg) {
+    var payload = arg === undefined ? null : arg;
+    if (${platform} === "ios") {
+      var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.hiveop;
+      if (!h || typeof h.postMessage !== "function") return Promise.reject(new Error("no native channel"));
+      return h.postMessage({ m: method, a: payload });
+    }
+    var ch = window.hiveopNative;
+    if (!ch || typeof ch.postMessage !== "function") return Promise.reject(new Error("no native channel"));
+    if (!listening) {
+      listening = true;
+      ch.onmessage = function (e) {
+        try {
+          var r = JSON.parse(e.data), p = pending[r.id];
+          if (!p) return;
+          delete pending[r.id];
+          if (r.ok) p.res(r.value); else p.rej(new Error(String(r.error || "native error")));
+        } catch (_) {}
+      };
+    }
+    return new Promise(function (res, rej) {
+      var id = ++seq;
+      pending[id] = { res: res, rej: rej };
+      ch.postMessage(JSON.stringify({ id: id, m: method, a: payload }));
+    });
+  }
+  function toAlpha2(c) {
+    if (typeof c !== "string") return null;
+    c = c.trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(c)) return c;
+    return Object.prototype.hasOwnProperty.call(A3, c) ? A3[c] : null;
+  }
   var members = {
     version: ${version},
     platform: ${platform},
     capabilities: caps,
-    has: function (c) { return caps.indexOf(c) !== -1; }
+    has: function (c) { return caps.indexOf(c) !== -1; },
+    storefront: function () {
+      return call("storefront").then(function (r) { return { country: toAlpha2(r && r.country) }; });
+    },
+    openExternal: function (url) {
+      if (typeof url !== "string" || !/^https:\\/\\//i.test(url)) return Promise.reject(new Error("openExternal takes https URLs only"));
+      return call("openExternal", { url: url }).then(function () {});
+    }
   };
   ${authBounceMembers(opts.platform)}
   var bridge = Object.freeze(members);

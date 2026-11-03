@@ -55,6 +55,7 @@ public class MainActivity extends BridgeActivity {
         HiveOpShell shell = HiveOpShell.load(this);
         if (shell != null && getBridge() != null) {
             shell.installBridge(getBridge().getWebView());
+            shell.installChannel(getBridge().getWebView(), this);
             getBridge().setWebViewClient(new HiveOpShell.Client(getBridge(), shell));
             installAuthBounce(shell);
         }

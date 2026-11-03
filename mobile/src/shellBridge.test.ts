@@ -29,9 +29,8 @@ describe('buildBridge', () => {
     expect(b.has('push')).toBe(false);
     expect(b.has(undefined as unknown as string)).toBe(false);
   });
-  it('launch capabilities include open-sheet and auth-bounce', () => {
-    expect(BRIDGE_CAPABILITIES).toContain('open-sheet');
-    expect(BRIDGE_CAPABILITIES).toContain('auth-bounce');
+  it('launch capabilities include open-sheet, auth-bounce and storefront', () => {
+    expect(BRIDGE_CAPABILITIES).toEqual(expect.arrayContaining(['open-sheet', 'auth-bounce', 'storefront']));
   });
 });
 
@@ -154,5 +153,86 @@ describe('auth-bounce members', () => {
       webkit: { messageHandlers: { hiveopAuth: { postMessage: async () => ({ result: 'handoff', handoff: 5 }) } } },
     }) as any;
     await expect(w.hiveopApp.bounce('google')).rejects.toThrow();
+  });
+});
+
+describe('storefront capability (ph-08)', () => {
+  type Sent = { m: string; a: any };
+  /** iOS: webkit.messageHandlers.hiveop.postMessage returns a Promise (WKScriptMessageHandlerWithReply). */
+  const ios = (reply: (m: Sent) => unknown) => {
+    const sent: Sent[] = [];
+    const extra = { webkit: { messageHandlers: { hiveop: { postMessage: (m: Sent) => { sent.push(m); return Promise.resolve(reply(m)); } } } } };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'ios' });
+    return { app: (vm(script, SITE, extra) as any).hiveopApp, sent };
+  };
+  /** Android: hiveopNative.postMessage(json) answers later through .onmessage({data: json}). */
+  const android = (reply: (m: any) => { ok: boolean; value?: unknown; error?: string }) => {
+    const sent: any[] = [];
+    const channel: any = {
+      onmessage: null as null | ((e: { data: string }) => void),
+      postMessage(json: string) {
+        const m = JSON.parse(json);
+        sent.push(m);
+        queueMicrotask(() => channel.onmessage?.({ data: JSON.stringify({ id: m.id, ...reply(m) }) }));
+      },
+    };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'android' });
+    return { app: (vm(script, SITE, { hiveopNative: channel }) as any).hiveopApp, sent };
+  };
+
+  it('is advertised and has() it', () => {
+    const { app } = ios(() => ({}));
+    expect(app.capabilities).toContain('storefront');
+    expect(app.has('storefront')).toBe(true);
+    expect(typeof app.storefront).toBe('function');
+    expect(typeof app.openExternal).toBe('function');
+  });
+
+  it('iOS: converts the StoreKit alpha-3 storefront to alpha-2', async () => {
+    const { app, sent } = ios(() => ({ country: 'USA' }));
+    await expect(app.storefront()).resolves.toEqual({ country: 'US' });
+    expect(sent).toEqual([{ m: 'storefront', a: null }]);
+    const de = ios(() => ({ country: 'DEU' }));
+    await expect(de.app.storefront()).resolves.toEqual({ country: 'DE' });
+  });
+
+  it('Android: passes the Play Billing alpha-2 through, uppercase', async () => {
+    const { app, sent } = android(() => ({ ok: true, value: { country: 'us' } }));
+    await expect(app.storefront()).resolves.toEqual({ country: 'US' });
+    expect(sent[0].m).toBe('storefront');
+  });
+
+  it.each([null, '', 'ZZZ', 'USAA', 7, undefined])('an unknown or odd country (%s) is null', async (country) => {
+    await expect(ios(() => ({ country })).app.storefront()).resolves.toEqual({ country: null });
+    await expect(ios(() => null).app.storefront()).resolves.toEqual({ country: null });
+  });
+
+  it('openExternal sends https URLs to the shell and nothing else', async () => {
+    const { app, sent } = ios(() => null);
+    await app.openExternal('https://hiveop.io/?from=app#pricing');
+    expect(sent).toEqual([{ m: 'openExternal', a: { url: 'https://hiveop.io/?from=app#pricing' } }]);
+    for (const bad of ['http://hiveop.io', 'javascript:alert(1)', 'intent://x', 'file:///etc/passwd', 'data:text/html,x', '//hiveop.io', '', 7, null]) {
+      await expect(app.openExternal(bad)).rejects.toThrow();
+    }
+    expect(sent).toHaveLength(1);
+  });
+
+  it('Android: correlates concurrent calls and surfaces native errors', async () => {
+    const { app } = android((m) => (m.m === 'openExternal' ? { ok: false, error: 'blocked' } : { ok: true, value: { country: 'US' } }));
+    const [sf, open] = await Promise.allSettled([app.storefront(), app.openExternal('https://hiveop.io/')]);
+    expect(sf).toMatchObject({ status: 'fulfilled', value: { country: 'US' } });
+    expect(open.status).toBe('rejected');
+  });
+
+  it('without a native channel the calls reject (the site reads that as unknown)', async () => {
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'android' });
+    const app = (vm(script, SITE) as any).hiveopApp;
+    await expect(app.storefront()).rejects.toThrow();
+    await expect(app.openExternal('https://hiveop.io/')).rejects.toThrow();
+  });
+
+  it('exposes nothing off the site origin', () => {
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'ios' });
+    expect('hiveopApp' in (vm(script, 'https://evil.example', { webkit: { messageHandlers: { hiveop: { postMessage: () => Promise.resolve({}) } } } }))).toBe(false);
   });
 });

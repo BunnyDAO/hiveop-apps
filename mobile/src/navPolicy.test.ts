@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { decide, inAppHosts, type Decision } from './navPolicy';
+import { canLinkOut, decide, inAppHosts, type Decision } from './navPolicy';
 
 const ctx = { siteOrigin: 'https://app.hiveop.io' };
 
@@ -57,5 +58,15 @@ describe('decide', () => {
 describe('inAppHosts', () => {
   it('lists the site host plus the backend auth chain, for native allow-lists', () => {
     expect(inAppHosts(ctx)).toEqual(['app.hiveop.io', 'api.hiveop.io', 'api.wenrwa.com']);
+  });
+});
+
+describe('canLinkOut (openExternal)', () => {
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/externalUrl.cases.json', import.meta.url), 'utf8')) as {
+    siteOrigin: string;
+    cases: [string, string, boolean][];
+  };
+  it.each(fx.cases)('%s', (_name, url, want) => {
+    expect(canLinkOut(url, fx.siteOrigin)).toBe(want);
   });
 });

@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// One version source: ../../package.json { version, build } (see scripts/sync-version.mjs).
+def appPkg = new groovy.json.JsonSlurper().parse(file('../../package.json'))
+
+// Release signing: gitignored android/key.properties (storeFile, storePassword, keyAlias, keyPassword)
+// or env HIVEOP_KEYSTORE / HIVEOP_KEYSTORE_PASSWORD / HIVEOP_KEY_ALIAS. Never commit either.
+def keyProps = new Properties()
+def keyPropsFile = rootProject.file('key.properties')
+if (keyPropsFile.exists()) { keyPropsFile.withInputStream { keyProps.load(it) } }
+
 android {
     namespace = "io.hiveop.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +16,8 @@ android {
         applicationId "io.hiveop.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        versionCode appPkg.build as int
+        versionName appPkg.version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +25,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def ks = keyProps['storeFile'] ?: System.getenv('HIVEOP_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword keyProps['storePassword'] ?: System.getenv('HIVEOP_KEYSTORE_PASSWORD')
+                keyAlias keyProps['keyAlias'] ?: System.getenv('HIVEOP_KEY_ALIAS') ?: 'upload'
+                keyPassword keyProps['keyPassword'] ?: System.getenv('HIVEOP_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingConfigs.release.storeFile) { signingConfig signingConfigs.release }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -31,3 +31,10 @@ Covers user stories 41.
 - ph-10
 - ph-12
 - ph-13
+
+## Progress
+
+- Part A (2026-11-04): signed builds. One version source `mobile/package.json` `{version, build}`; Android reads it in `app/build.gradle`, iOS via `node scripts/sync-version.mjs [--bump]`. Android release signs from gitignored `android/key.properties` or `HIVEOP_KEYSTORE*` env. `ITSAppUsesNonExemptEncryption=NO` set.
+- iOS 0.1.0 (1) uploaded, VALID, in internal TestFlight group "Internal" (ryan@wenrwa.com). Archived with a manual App Store profile ("HiveOp App Store", created via ASC API); aps-environment=production verified in the IPA.
+- Android `hiveop-0.1.0-1.aab` built and upload-key fingerprint verified. Owner uploads it to Play.
+- Still open: listings, screenshots, link-out re-check, HITL installs.

@@ -1,0 +1,145 @@
+{
+ "siteOrigin": "https://app.hiveop.io",
+ "cases": [
+  [
+   "inbox",
+   "https://app.hiveop.io/inbox",
+   "https://app.hiveop.io/inbox"
+  ],
+  [
+   "query kept",
+   "https://app.hiveop.io/hive/ws1?agent=a%201",
+   "https://app.hiveop.io/hive/ws1?agent=a%201"
+  ],
+  [
+   "email sign-in link",
+   "https://app.hiveop.io/auth/verify?token=abc123&email=a%40b.co",
+   "https://app.hiveop.io/auth/verify?token=abc123&email=a%40b.co"
+  ],
+  [
+   "hash kept",
+   "https://app.hiveop.io/inbox#top",
+   "https://app.hiveop.io/inbox#top"
+  ],
+  [
+   "root",
+   "https://app.hiveop.io",
+   "https://app.hiveop.io/"
+  ],
+  [
+   "root slash",
+   "https://app.hiveop.io/",
+   "https://app.hiveop.io/"
+  ],
+  [
+   "uppercase host",
+   "https://APP.HIVEOP.IO/inbox",
+   "https://app.hiveop.io/inbox"
+  ],
+  [
+   "api excluded",
+   "https://app.hiveop.io/api/v1/x",
+   null
+  ],
+  [
+   "api bare excluded",
+   "https://app.hiveop.io/api",
+   null
+  ],
+  [
+   "desktop-return excluded",
+   "https://app.hiveop.io/desktop-return?handoff=x",
+   null
+  ],
+  [
+   "desktop-return slash excluded",
+   "https://app.hiveop.io/desktop-return/",
+   null
+  ],
+  [
+   "well-known excluded",
+   "https://app.hiveop.io/.well-known/assetlinks.json",
+   null
+  ],
+  [
+   "encoded api still excluded",
+   "https://app.hiveop.io/%61pi/x",
+   null
+  ],
+  [
+   "dot segments cannot reach api",
+   "https://app.hiveop.io/inbox/../api/x",
+   null
+  ],
+  [
+   "other host",
+   "https://evil.com/inbox",
+   null
+  ],
+  [
+   "lookalike host",
+   "https://app.hiveop.io.evil.com/inbox",
+   null
+  ],
+  [
+   "userinfo trick",
+   "https://app.hiveop.io@evil.com/inbox",
+   null
+  ],
+  [
+   "credentials",
+   "https://user:pw@app.hiveop.io/inbox",
+   null
+  ],
+  [
+   "other port",
+   "https://app.hiveop.io:8443/inbox",
+   null
+  ],
+  [
+   "http",
+   "http://app.hiveop.io/inbox",
+   null
+  ],
+  [
+   "custom scheme",
+   "hiveop://auth?handoff=x",
+   null
+  ],
+  [
+   "javascript",
+   "javascript:alert(1)",
+   null
+  ],
+  [
+   "backslash host trick",
+   "https://app.hiveop.io\\@evil.com/x",
+   null
+  ],
+  [
+   "garbage",
+   "not a url",
+   null
+  ],
+  [
+   "not a string",
+   42,
+   null
+  ],
+  [
+   "null",
+   null,
+   null
+  ],
+  [
+   "too long",
+   "https://app.hiveop.io/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   null
+  ],
+  [
+   "control char",
+   "https://app.hiveop.io/a%0d%0ab",
+   "https://app.hiveop.io/a%0d%0ab"
+  ]
+ ]
+}

@@ -70,6 +70,11 @@ final class PushOpener {
 
     func open(_ rawPath: Any?) {
         guard let url = PushPath.targetURL(rawPath, siteOrigin: siteOrigin) else { return }
+        open(url: url)
+    }
+
+    /// Same wait-for-the-site behaviour for a URL already vetted (ph-07 Universal Links).
+    func open(url: URL) {
         pending = url
         tries = 0
         timer?.invalidate()

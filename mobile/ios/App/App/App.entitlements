@@ -6,5 +6,10 @@
 	     "development" is rewritten to "production" by distribution signing. -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- ph-07: Universal Links. The site's /.well-known/apple-app-site-association names this app. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:app.hiveop.io</string>
+	</array>
 </dict>
 </plist>

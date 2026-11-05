@@ -31,6 +31,15 @@
                 <data android:scheme="hiveop" android:host="auth" />
             </intent-filter>
 
+            <!-- ph-07: verified App Links. The site's /.well-known/assetlinks.json vouches for this app;
+                 the shell itself refuses /api, /desktop-return and /.well-known (UniversalLink.java). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app.hiveop.io" />
+            </intent-filter>
+
         </activity>
 
         <provider

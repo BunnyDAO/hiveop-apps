@@ -181,6 +181,17 @@ class HiveOpViewController: MainViewController {
     private var pushOpener: PushOpener?
     private var pushRelay: PushTapRelay?
 
+    private var linkOpener: PushOpener?
+    private var pendingLink: URL?
+
+    /// ph-07: open a tapped HiveOp link (vetted by UniversalLink). Waits for the first site load, and
+    /// for the web view itself if the link launched the app.
+    func openLink(_ url: URL) {
+        guard let asset = asset, let target = UniversalLink.target(url.absoluteString, siteOrigin: asset.siteOrigin),
+              let vetted = URL(string: target) else { return }
+        if let opener = linkOpener { opener.open(url: vetted) } else { pendingLink = vetted }
+    }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         guard let asset = asset, let webView = webView else { return }
@@ -204,6 +215,10 @@ class HiveOpViewController: MainViewController {
         let proxy = NewWindowUIDelegate(original: webView.uiDelegate, asset: asset, viewController: self)
         uiDelegate = proxy
         webView.uiDelegate = proxy
+
+        let links = PushOpener(webView: webView, siteOrigin: asset.siteOrigin)
+        linkOpener = links
+        if let waiting = pendingLink { pendingLink = nil; links.open(url: waiting) }
 
         // A tapped notification opens its (sanitised) path in this web view.
         if let router = bridge?.notificationRouter, UNUserNotificationCenter.current().delegate === router {

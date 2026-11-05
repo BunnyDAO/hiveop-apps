@@ -25,6 +25,7 @@ public class MainActivity extends BridgeActivity {
         Uri data = intent == null ? null : intent.getData();
         if (auth != null && data != null && auth.onReturn(data.toString())) authSheetOpen = false;
         openPushPath(intent);
+        openAppLink(intent);
     }
 
     @Override
@@ -63,7 +64,10 @@ public class MainActivity extends BridgeActivity {
         }
 
         // Launched by tapping a notification: open its path.
-        if (savedInstanceState == null) openPushPath(getIntent());
+        if (savedInstanceState == null) {
+            openPushPath(getIntent());
+            openAppLink(getIntent());
+        }
     }
 
     /**
@@ -80,6 +84,24 @@ public class MainActivity extends BridgeActivity {
         String target = PushPath.targetUrl(intent.getStringExtra("path"), site);
         intent.removeExtra("google.message_id");
         b.getWebView().loadUrl(target);
+    }
+
+    /**
+     * ph-07: a tapped https://app.hiveop.io/... link (verified App Link, including the email sign-in
+     * link /auth/verify) opens in this web view. UniversalLink applies the shared sanitising rules;
+     * a refused link leaves the app where it is.
+     */
+    private void openAppLink(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return;
+        Uri data = intent.getData();
+        if (data == null || !"https".equalsIgnoreCase(data.getScheme())) return;
+        Bridge b = getBridge();
+        if (b == null || b.getServerUrl() == null) return;
+        String site = MediaPolicy.originOf(b.getServerUrl());
+        if (site == null) return;
+        String target = UniversalLink.target(data.toString(), site);
+        intent.setData(null);
+        if (target != null) b.getWebView().loadUrl(target);
     }
 
     /** ph-04: page -> native bridge for the secure sign-in sheet, reachable from the site origin only. */

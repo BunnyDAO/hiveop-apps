@@ -11,5 +11,10 @@
 	<array>
 		<string>applinks:app.hiveop.io</string>
 	</array>
+	<!-- Sign in with Apple (ph-06): the capability must also be on the app id in the owner's Apple account. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>

@@ -78,7 +78,7 @@ final class HiveOpAuth {
         return found != null && HANDOFF.matcher(found).matches() ? found : null;
     }
 
-    /** Begin a bounce from a page message {"id":…,"provider":"google|github"}; replaces any pending one. */
+    /** Begin a bounce from a page message {"id":…,"provider":"google|github|apple"}; replaces any pending one. */
     synchronized void start(String message, Reply reply) {
         String provider;
         String msgId;
@@ -89,7 +89,7 @@ final class HiveOpAuth {
         } catch (Exception e) {
             return;
         }
-        if (!provider.equals("google") && !provider.equals("github")) return;
+        if (!provider.equals("google") && !provider.equals("github") && !provider.equals("apple")) return;
         if (this.reply != null) finish("cancelled", null); // a newer start replaces the old one
         byte[] raw = new byte[32];
         random.nextBytes(raw);

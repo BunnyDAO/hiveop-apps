@@ -16,7 +16,7 @@ describe('parseAuthReturn (desktop deepLink rules)', () => {
 });
 
 describe('startUrl', () => {
-  it.each(['google', 'github'] as const)('%s start carries returnTo and the S256 challenge', (p) => {
+  it.each(['google', 'github', 'apple'] as const)('%s start carries returnTo and the S256 challenge', (p) => {
     const u = new URL(startUrl(API, SITE, p, 'CHAL'));
     expect(u.origin + u.pathname).toBe(`${API}/auth/oauth/${p}`);
     expect(u.searchParams.get('returnTo')).toBe(`${SITE}/desktop-return`);

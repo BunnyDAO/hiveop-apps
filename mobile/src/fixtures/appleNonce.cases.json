@@ -1,0 +1,33 @@
+{
+  "hash": [
+    [
+      "short",
+      "abc",
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    ],
+    [
+      "empty-ish",
+      "0",
+      "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    ],
+    [
+      "typical",
+      "raw-nonce-0123456789abcdef",
+      "987470e0df287fdfc6949e7320c3a7d3c45154b33ca5b44eda6b0784faa10014"
+    ],
+    [
+      "unicode",
+      "nönce-é",
+      "8c733b24c2b4356011f0b8239396de508d3bef06f8c425f0ce9873fe451c30c1"
+    ],
+    [
+      "all-chars",
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._",
+      "31e0c39c232b33518c29eabaeaef2ec9ef2bc5626c9fde07b42b7c9355171455"
+    ]
+  ],
+  "random": {
+    "length": 32,
+    "pattern": "^[0-9A-Za-z._-]{32}$"
+  }
+}

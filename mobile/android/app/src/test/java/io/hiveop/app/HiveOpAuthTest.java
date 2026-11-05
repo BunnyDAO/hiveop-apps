@@ -42,6 +42,18 @@ public class HiveOpAuthTest {
     }
 
     @Test
+    public void appleRunsTheWebFlowInTheSheetAndUnknownProvidersAreIgnored() throws Exception {
+        Rig r = new Rig();
+        r.start(1, "apple");
+        assertEquals(1, r.opened.size());
+        assertTrue(r.opened.get(0), r.opened.get(0).startsWith(API + "/auth/oauth/apple?"));
+        assertTrue(r.opened.get(0), r.opened.get(0).contains("code_challenge_method=S256"));
+        Rig other = new Rig();
+        other.start(1, "twitter");
+        assertEquals(0, other.opened.size());
+    }
+
+    @Test
     public void startOpensBackendWithChallengeThenReturnDeliversVerifier() throws Exception {
         Rig r = new Rig();
         r.start(1, "github");
@@ -93,7 +105,7 @@ public class HiveOpAuthTest {
     @Test
     public void unknownProviderAndStrayReturnAreIgnored() {
         Rig r = new Rig();
-        r.start(5, "apple");
+        r.start(5, "twitter");
         assertTrue(r.opened.isEmpty());
         assertFalse(r.auth.onReturn("hiveop://auth?handoff=" + HO));
         assertNull(HiveOpAuth.parseHandoff(null));

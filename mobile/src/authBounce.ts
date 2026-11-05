@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
  * The native shells run the real thing (ASWebAuthenticationSession / Custom Tabs) and mirror this
  * file; src/fixtures/authReturn.cases.json is the shared truth for return parsing.
  */
-export type Provider = 'google' | 'github';
+export type Provider = 'google' | 'github' | 'apple'; // apple: Android's web flow; iOS uses the native sheet
 
 /** PKCE S256: unpadded base64url SHA-256 of the verifier. */
 export function challengeFor(verifier: string): string {

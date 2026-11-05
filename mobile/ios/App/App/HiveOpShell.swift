@@ -101,6 +101,9 @@ public final class HiveOpShellPlugin: CAPInstancePlugin, CAPBridgedPlugin {
 final class HiveOpChannel: NSObject, WKScriptMessageHandlerWithReply {
     static let name = "hiveop"
     let asset: ShellAsset
+    private let apple = AppleSignInCoordinator()
+    /// The window the Apple sheet presents over.
+    var anchor: (() -> UIWindow?)?
 
     init(asset: ShellAsset) { self.asset = asset }
 
@@ -123,6 +126,12 @@ final class HiveOpChannel: NSObject, WKScriptMessageHandlerWithReply {
             Task { @MainActor in
                 let code = await Storefront.current?.countryCode
                 replyHandler(["country": code.map { $0 as Any } ?? NSNull()], nil)
+            }
+        case "appleSignIn":
+            // ph-06: Apple's native sheet (Face ID). Replies { identityToken, nonce (RAW), name } or null if closed.
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { replyHandler(nil, "gone"); return }
+                self.apple.start(anchor: self.anchor?(), reply: replyHandler)
             }
         case "openExternal":
             guard let args = body["a"] as? [String: Any], let raw = args["url"] as? String,
@@ -202,8 +211,10 @@ class HiveOpViewController: MainViewController {
             webView.configuration.userContentController.addUserScript(
                 WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        let channel = HiveOpChannel(asset: asset)
+        channel.anchor = { [weak self] in self?.view.window }
         webView.configuration.userContentController.addScriptMessageHandler(
-            HiveOpChannel(asset: asset), contentWorld: .page, name: HiveOpChannel.name)
+            channel, contentWorld: .page, name: HiveOpChannel.name)
         let plugin = HiveOpShellPlugin()
         plugin.asset = asset
         bridge?.registerPluginInstance(plugin)

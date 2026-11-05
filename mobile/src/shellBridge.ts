@@ -10,7 +10,7 @@ import { PUSH_BRIDGE_JS } from './pushBridge.ts';
 
 export type Platform = 'ios' | 'android';
 
-export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings'];
+export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in'];
 
 export interface Bridge {
   version: string;
@@ -47,7 +47,7 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
   return `(function(){
   "use strict";
   if (window.location.origin !== ${site} || window.hiveopApp) return;
-  var caps = Object.freeze(${caps}.filter(function (c) { return !(c === "push" && window.__hiveopNoPush === true); }));${PUSH_BRIDGE_JS}
+  var caps = Object.freeze(${caps}.filter(function (c) { return !(c === "push" && window.__hiveopNoPush === true) && !(c === "apple-sign-in" && ${platform} !== "ios"); }));${PUSH_BRIDGE_JS}
   var A3 = ${alpha3};
   var pending = {}, seq = 0, listening = false;
   // The native channel, looked up when used (Android installs its object at document start,
@@ -98,6 +98,16 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
     }
   };
   ${authBounceMembers(opts.platform)}
+  // ph-06: iOS only. The native sheet replies { identityToken, nonce (RAW), name } or null when closed;
+  // the page posts them to the backend, which checks sha256(nonce) against the token.
+  if (caps.indexOf("apple-sign-in") !== -1) {
+    members.appleSignIn = function () {
+      return call("appleSignIn").then(function (r) {
+        if (!r || typeof r.identityToken !== "string" || !r.identityToken || typeof r.nonce !== "string" || !r.nonce) return null;
+        return { identityToken: r.identityToken, nonce: r.nonce, name: typeof r.name === "string" && r.name ? r.name : null };
+      });
+    };
+  }
   var more = pushMembers(window, caps, ${platform});
   for (var k in more) members[k] = more[k];
   var bridge = Object.freeze(members);
@@ -143,7 +153,7 @@ function authBounceMembers(platform: Platform): string {
     var listeners = [];
     ${send}
     members.bounce = function (provider) {
-      if (provider !== "google" && provider !== "github") return Promise.reject(new Error("unknown provider"));
+      if (provider !== "google" && provider !== "github" && provider !== "apple") return Promise.reject(new Error("unknown provider"));
       return send(provider).then(function (r) {
         if (r && r.result === "cancelled") return "cancelled";
         if (r && r.result === "handoff" && typeof r.handoff === "string" && typeof r.verifier === "string") {

@@ -19,6 +19,7 @@
 		A4040001000000000000A001 /* HiveOpAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4040002000000000000A001 /* HiveOpAuth.swift */; };
 		A1001000000000000000A001 /* PushTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1001000000000000000A002 /* PushTap.swift */; };
 		A1001000000000000000B001 /* UniversalLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1001000000000000000B002 /* UniversalLink.swift */; };
+		A6060001000000000000A001 /* AppleSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6060002000000000000A001 /* AppleSignIn.swift */; };
 		A3030001000000000000A001 /* HiveOpShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3030002000000000000A001 /* HiveOpShell.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
@@ -37,6 +38,7 @@
 		A4040002000000000000A001 /* HiveOpAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiveOpAuth.swift; sourceTree = "<group>"; };
 		A1001000000000000000A002 /* PushTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTap.swift; sourceTree = "<group>"; };
 		A1001000000000000000B002 /* UniversalLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalLink.swift; sourceTree = "<group>"; };
+		A6060002000000000000A001 /* AppleSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignIn.swift; sourceTree = "<group>"; };
 		A1001000000000000000A003 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A3030002000000000000A001 /* HiveOpShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiveOpShell.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 				A4040002000000000000A001 /* HiveOpAuth.swift */,
 				A1001000000000000000A002 /* PushTap.swift */,
 				A1001000000000000000B002 /* UniversalLink.swift */,
+				A6060002000000000000A001 /* AppleSignIn.swift */,
 				A1001000000000000000A003 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -182,6 +185,7 @@
 				A4040001000000000000A001 /* HiveOpAuth.swift in Sources */,
 				A1001000000000000000A001 /* PushTap.swift in Sources */,
 				A1001000000000000000B001 /* UniversalLink.swift in Sources */,
+				A6060001000000000000A001 /* AppleSignIn.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

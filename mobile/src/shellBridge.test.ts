@@ -30,7 +30,7 @@ describe('buildBridge', () => {
     expect(b.has(undefined as unknown as string)).toBe(false);
   });
   it('launch capabilities include open-sheet, auth-bounce and storefront', () => {
-    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings']);
+    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in']);
   });
 });
 
@@ -44,7 +44,7 @@ describe('buildBridgeScript', () => {
     const w = run(SITE);
     expect(w.hiveopApp.version).toBe('0.1.0');
     expect(w.hiveopApp.platform).toBe('android');
-    expect(w.hiveopApp.capabilities).toEqual([...BRIDGE_CAPABILITIES]);
+    expect(w.hiveopApp.capabilities).toEqual(BRIDGE_CAPABILITIES.filter((c) => c !== 'apple-sign-in')); // Android: web flow
     expect(w.hiveopApp.has('open-sheet')).toBe(true);
     expect(w.hiveopApp.has('nope')).toBe(false);
   });
@@ -234,5 +234,62 @@ describe('storefront capability (ph-08)', () => {
   it('exposes nothing off the site origin', () => {
     const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'ios' });
     expect('hiveopApp' in (vm(script, 'https://evil.example', { webkit: { messageHandlers: { hiveop: { postMessage: () => Promise.resolve({}) } } } }))).toBe(false);
+  });
+});
+
+describe('apple-sign-in capability (ph-06)', () => {
+  type Sent = { m: string; a: any };
+  const ios = (reply: (m: Sent) => unknown) => {
+    const sent: Sent[] = [];
+    const extra = { webkit: { messageHandlers: { hiveop: { postMessage: (m: Sent) => { sent.push(m); return Promise.resolve(reply(m)); } } } } };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'ios' });
+    return { app: (vm(script, SITE, extra) as any).hiveopApp, sent };
+  };
+
+  it('iOS advertises it and exposes appleSignIn()', () => {
+    const { app } = ios(() => null);
+    expect(app.capabilities).toContain('apple-sign-in');
+    expect(app.has('apple-sign-in')).toBe(true);
+    expect(typeof app.appleSignIn).toBe('function');
+  });
+
+  it('Android does not: it runs the web flow in the auth sheet', () => {
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'android' });
+    const app = (vm(script, SITE, { hiveopNative: { postMessage() {} } }) as any).hiveopApp;
+    expect(app.capabilities).not.toContain('apple-sign-in');
+    expect(app.has('apple-sign-in')).toBe(false);
+    expect('appleSignIn' in app).toBe(false);
+  });
+
+  it('asks the native sheet and returns the token, the RAW nonce and the name', async () => {
+    const { app, sent } = ios(() => ({ identityToken: 'idt', nonce: 'raw', name: 'Ada Lovelace' }));
+    await expect(app.appleSignIn()).resolves.toEqual({ identityToken: 'idt', nonce: 'raw', name: 'Ada Lovelace' });
+    expect(sent).toEqual([{ m: 'appleSignIn', a: null }]);
+  });
+
+  it('a closed sheet resolves null', async () => {
+    await expect(ios(() => null).app.appleSignIn()).resolves.toBeNull();
+  });
+
+  it('a reply without a token or nonce is treated as cancelled, not as a credential', async () => {
+    await expect(ios(() => ({ identityToken: 'x' })).app.appleSignIn()).resolves.toBeNull();
+    await expect(ios(() => ({ nonce: 'x' })).app.appleSignIn()).resolves.toBeNull();
+  });
+
+  it('a native failure rejects', async () => {
+    const send = { webkit: { messageHandlers: { hiveop: { postMessage: () => Promise.reject(new Error('apple failed')) } } } };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'ios' });
+    const app = (vm(script, SITE, send) as any).hiveopApp;
+    await expect(app.appleSignIn()).rejects.toThrow('apple failed');
+  });
+
+  it('the Android auth bounce takes apple; unknown providers are still refused', async () => {
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.1.0', platform: 'android' });
+    const posted: string[] = [];
+    const ch: any = { postMessage: (j: string) => posted.push(j) };
+    const app = (vm(script, SITE, { hiveopNative: { postMessage() {} }, hiveopAuthNative: ch }) as any).hiveopApp;
+    void app.bounce('apple');
+    expect(JSON.parse(posted[0]).provider).toBe('apple');
+    await expect(app.bounce('twitter')).rejects.toThrow('unknown provider');
   });
 });

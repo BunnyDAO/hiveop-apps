@@ -2,7 +2,7 @@
   "name": "hiveop-mobile",
   "productName": "HiveOp",
   "version": "0.1.0",
-  "build": 1,
+  "build": 2,
   "private": true,
   "description": "HiveOp phone app shell (Capacitor, iOS + Android)",
   "scripts": {

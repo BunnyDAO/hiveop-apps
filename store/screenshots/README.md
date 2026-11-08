@@ -12,3 +12,9 @@ Method: the site (https://app.hiveop.io), not the native app. Headless Chrome (C
 Sources: https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications , https://support.google.com/googleplay/android-developer/answer/9866151
 
 These are placeholders only: the signed-out site is a sign-in card and a tagline. Store-ready shots (Inbox with a needs-you item, terminals, chat, work graph) need the demo account from review-notes.md; rerun with the same method once it exists. Apple requires 1-10 per size, Play wants at least 4 per tablet size.
+
+## Framed store set (2026-11-06)
+
+`ios/iphone-6.9/framed/01-05.png` (1320x2868) and `android/phone/framed/01-05.png` (1080x2160, Play max 2:1). Raw shots come from the iOS Simulator signed in as the review account. To re-render: `./render.sh <shot.png> "plain|accent" <w> <h> <out.png>` (template `frame.html`, one hidden headless Chrome per frame). Order: 1 agent, 2 home, 3 mission, 4 chat, 5 report/block. Older 1080x2400 Android placeholders break Play's 2:1 rule; don't upload them.
+
+iPad 13" (2026-11-08): `ios/ipad-13/framed/01-scene.png` (terminal + 3D Scene, "Watch your agents / work in 3D") and `02-canvas.png` (terminal + Chat), 2064x2752; unframed originals in `ios/ipad-13/raw/`. `frame.html` gives tablet-shaped canvases (wider than 0.6) tighter corners so the status bar isn't clipped. The earlier iPad placeholders (sign-in, home) were removed.

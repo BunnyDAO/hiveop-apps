@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HiveOp store frame</title>
+<style>
+  /* Rendered headless at the store's exact pixel size: ?w=&h=&shot=&title=&accent= */
+  :root { --bg:#06131C; --accent:#22D3EE; --fg:#F5FAFC; }
+  html,body { margin:0; height:100%; }
+  body {
+    background:
+      radial-gradient(120% 60% at 50% 0%, rgba(34,211,238,.28), transparent 60%),
+      radial-gradient(90% 50% at 50% 100%, rgba(14,165,233,.18), transparent 70%),
+      var(--bg);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    color: var(--fg); overflow:hidden;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  h1 {
+    margin:0; text-align:center; font-weight:800; letter-spacing:-.02em; line-height:1.04;
+    font-size: calc(var(--W) * 0.083px); padding: 0 6%;
+    margin-top: calc(var(--H) * 0.055px);
+  }
+  h1 .a { color: var(--accent); }
+  .phone {
+    margin-top: calc(var(--H) * 0.04px);
+    border-radius: calc(var(--W) * 0.07px);
+    padding: calc(var(--W) * 0.012px);
+    background: linear-gradient(160deg, #2a3a46, #0c1820 60%);
+    box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.08);
+  }
+  .phone img { display:block; border-radius: calc(var(--W) * 0.06px); }
+  .tablet .phone { border-radius: calc(var(--W) * 0.03px); }
+  .tablet .phone img { border-radius: calc(var(--W) * 0.02px); }
+</style></head>
+<body>
+<h1 id="t"></h1>
+<div class="phone"><img id="s"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const W = +q.get('w'), H = +q.get('h');
+  document.documentElement.style.setProperty('--W', W);
+  document.documentElement.style.setProperty('--H', H);
+  // Tablet canvases (iPad 2064×2752 is 0.75 wide) get tighter corners, or the
+  // phone-style radius clips the shot's status bar.
+  if (W / H > 0.6) document.body.classList.add('tablet');
+  // Title with the accent words wrapped: title="AI agents that|ship your code" → second part accented.
+  const [plain, accent] = (q.get('title') || '').split('|');
+  document.getElementById('t').innerHTML =
+    plain + (accent ? '<br><span class="a">' + accent + '</span>' : '');
+  const img = document.getElementById('s');
+  img.src = q.get('shot');
+  // Fit the phone into what's left under the headline, keeping the shot's 1320×2868 shape.
+  img.onload = () => {
+    const top = document.querySelector('.phone').getBoundingClientRect().top;
+    const room = H - top - H * 0.045;
+    const hFit = room - W * 0.024;
+    const wFit = hFit * (img.naturalWidth / img.naturalHeight);
+    img.style.height = hFit + 'px'; img.style.width = wFit + 'px';
+    document.title = 'ready';
+  };
+</script>
+</body></html>

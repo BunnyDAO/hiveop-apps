@@ -15,7 +15,7 @@
   }
   h1 {
     margin:0; text-align:center; font-weight:800; letter-spacing:-.02em; line-height:1.04;
-    font-size: calc(var(--W) * 0.083px); padding: 0 6%;
+    font-size: calc(var(--F) * 0.083px); padding: 0 6%;
     margin-top: calc(var(--H) * 0.055px);
   }
   h1 .a { color: var(--accent); }
@@ -38,6 +38,8 @@
   const W = +q.get('w'), H = +q.get('h');
   document.documentElement.style.setProperty('--W', W);
   document.documentElement.style.setProperty('--H', H);
+  // Landscape canvases (iPad 2752×2064) size the headline off the short side, or it eats the frame.
+  document.documentElement.style.setProperty('--F', W > H ? H * 0.75 : W);
   // Tablet canvases (iPad 2064×2752 is 0.75 wide) get tighter corners, or the
   // phone-style radius clips the shot's status bar.
   if (W / H > 0.6) document.body.classList.add('tablet');
@@ -52,8 +54,10 @@
     const top = document.querySelector('.phone').getBoundingClientRect().top;
     const room = H - top - H * 0.045;
     const hFit = room - W * 0.024;
-    const wFit = hFit * (img.naturalWidth / img.naturalHeight);
-    img.style.height = hFit + 'px'; img.style.width = wFit + 'px';
+    let wFit = hFit * (img.naturalWidth / img.naturalHeight), h2 = hFit;
+    // A landscape shot can be wider than the canvas: cap the width and shrink to match.
+    if (wFit > W * 0.92) { wFit = W * 0.92; h2 = wFit * (img.naturalHeight / img.naturalWidth); }
+    img.style.height = h2 + 'px'; img.style.width = wFit + 'px';
     document.title = 'ready';
   };
 </script>

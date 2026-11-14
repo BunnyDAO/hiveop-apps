@@ -30,3 +30,7 @@ iPad 13" (2026-11-08): `ios/ipad-13/framed/01-scene.png` (terminal + 3D Scene, "
 | play-phone | 1080x2160 (360x720 @3x, Play max 2:1) | same six as iOS, Android-style status bar |
 
 05 is the moderation shot App Review and Play's UGC policy look for. `frame.html` now handles landscape canvases (headline sized off the short side, shot width capped).
+
+## Retake (2026-11-14) — use this set
+
+`2026-11-14/{ios-6.3,ipad-13,play-phone}/{raw,framed}`, same method, sizes, shots and captions as 2026-11-12, retaken on arena master 572bd954 so the store shows the 2026-11-13 fixes (members preview, Plans, Machine chip, rail, "Sam asked to join"). Phone 02 now sets the pane layout directly (setdeck) instead of tapping Ada. Supersedes 2026-11-12 for upload.

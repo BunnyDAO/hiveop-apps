@@ -1,4 +1,5 @@
 import { app, BrowserWindow, net, session, shell, systemPreferences } from 'electron';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isLoadFailure, isLoadSuccess, retryDelayMs } from './backoff';
@@ -8,10 +9,11 @@ import { resolveSiteUrl, userAgentFor } from './site';
 import { openAppPopup } from './popup';
 import { createAuthBounce } from './authBounce';
 import { randomBytes } from 'node:crypto';
-import { attachWindow, declineTakeoverPref, installShell, isTakeoverDeclined, setBridgeStatus, setBridgeUpdatePending, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
+import { attachWindow, declineTakeoverPref, setDevicesAction, installShell, isTakeoverDeclined, setBridgeStatus, setBridgeUpdatePending, setLocalAgentCounter, setUpdateActions, setUpdateState, startShell } from './shell';
 import { createShellUpdater } from './shellUpdaterHost';
 import { createBridgeHost } from './bridgeHost';
 import { windowChrome } from './windowChrome';
+import { installDevicesUi } from './devicesUi';
 import { checkMedia, requestMedia, type MediaAccessDeps } from './mediaAccess';
 
 const APP_ID = 'io.hiveop.desktop';
@@ -181,6 +183,11 @@ const bridgeHost = createBridgeHost({
   },
 });
 
+// ryc (PRD reach-your-computer D3) — a phone asking to reach this Mac is approved HERE, natively.
+// Same home the managed bridge runs under (HIVEOP_BRIDGE_HOME is the test seam).
+const bridgeHome = process.env.HIVEOP_BRIDGE_HOME || os.homedir();
+const devicesUi = installDevicesUi({ dir: () => path.join(bridgeHome, '.wen-market'), smoke: SMOKE });
+
 const shellUpdater = createShellUpdater({ env: process.env, onChange: (s) => {
     if (SMOKE) console.log(`[smoke] update ${JSON.stringify(s)}`);
     setUpdateState(s);
@@ -207,6 +214,9 @@ if (!app.requestSingleInstanceLock()) {
     startShell();
     setLocalAgentCounter(() => bridgeHost.localAgents());
     void bridgeHost.start();
+    setDevicesAction(() => devicesUi.openDevices());
+    // Smoke runs never poll the owner's real bridge.
+    if (!SMOKE || process.env.HIVEOP_BRIDGE_HOME) devicesUi.start();
     setUpdateActions({
       openRelease: (url) => (SMOKE ? void console.log(`[smoke] openExternal ${url}`) : void shell.openExternal(url)),
       restart: () => shellUpdater.restart(),
@@ -215,6 +225,7 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.on('will-quit', () => {
     shellUpdater.stop();
+    devicesUi.stop();
     bridgeHost.stop();
   }); // stops only the bridge this app started
 }

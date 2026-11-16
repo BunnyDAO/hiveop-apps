@@ -55,6 +55,13 @@ export function setUpdateState(s: UpdateState): void {
   if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
 }
 
+/** ryc — opens "Devices that can reach this Mac" (devicesUi.ts). */
+let openDevices: (() => void) | null = null;
+export function setDevicesAction(fn: () => void): void {
+  openDevices = fn;
+  if (tray) tray.setContextMenu(buildMenu(loadPrefs()));
+}
+
 /** A downloaded bridge update waiting for the agents to stop (dsk-11). */
 let bridgeUpdatePending: string | null = null;
 export function setBridgeUpdatePending(v: string | null): void {
@@ -158,6 +165,7 @@ function buildMenu(prefs: Prefs): Menu {
     { label: bridgeStatusLine(trayBridge.state), enabled: false },
     { label: agentsLine(trayBridge.agents), enabled: false },
     ...(updateLine(bridgeUpdatePending) ? [{ label: updateLine(bridgeUpdatePending) as string, enabled: false }] : []),
+    ...(openDevices ? [{ label: 'Devices that can reach this Mac…', click: () => openDevices?.() }] : []),
     { type: 'separator' },
     {
       label: 'Start at login',

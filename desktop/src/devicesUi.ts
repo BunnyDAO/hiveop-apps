@@ -48,7 +48,7 @@ export interface DevicesUi {
 export function installDevicesUi(o: DevicesUiOptions): DevicesUi {
   const preload = path.join(__dirname, 'devicesPreload.js');
   const res = path.join(__dirname, '..', 'resources');
-  const bg = o.backgroundColor ?? '#0b0d12';
+  const bg = o.backgroundColor ?? '#070e13'; // HiveOp's page colour (arena --m-frame)
 
   let approvalWin: BrowserWindow | null = null;
   let devicesWin: BrowserWindow | null = null;

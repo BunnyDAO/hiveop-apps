@@ -154,12 +154,59 @@ final class HiveOpShell {
                 } else {
                     reply.send(new JSONObject().put("id", rid).put("ok", true).put("value", JSONObject.NULL).toString());
                 }
+            } else if ("deviceKeyAvailable".equals(method)) {
+                // ryc-09: an Android Keystore key behind a strong biometric can be made here.
+                JSONObject value = new JSONObject().put("available", DeviceKeys.available(context));
+                reply.send(new JSONObject().put("id", rid).put("ok", true).put("value", value).toString());
+            } else if (method.startsWith("deviceKey")) {
+                handleDeviceKey(context, method, req.optJSONObject("a"), rid, reply);
             } else {
                 reply.send(error(rid, "unknown method"));
             }
         } catch (Exception e) {
             if (id >= 0) reply.send(error(id, "bad request"));
         }
+    }
+
+    /** ryc-09: create / sign / remove one of the two fixed keys (DeviceKeys). Never on the UI thread. */
+    private void handleDeviceKey(Context context, String method, JSONObject args, int rid, Reply reply) {
+        String alias = args == null ? "" : args.optString("alias");
+        if (!DeviceKeys.validAlias(alias)) { reply.send(error(rid, "bad request")); return; }
+        DeviceKeys.Result answer = new DeviceKeys.Result() {
+            @Override public void ok(byte[] value) {
+                try {
+                    String b64 = value == null ? null : android.util.Base64.encodeToString(value, android.util.Base64.NO_WRAP);
+                    JSONObject v = "deviceKeyCreate".equals(method) ? new JSONObject().put("publicKey", b64)
+                        : "deviceKeySign".equals(method) ? new JSONObject().put("sig", b64) : null;
+                    reply.send(new JSONObject().put("id", rid).put("ok", true).put("value", v == null ? JSONObject.NULL : v).toString());
+                } catch (Exception e) {
+                    reply.send(error(rid, "failed"));
+                }
+            }
+            @Override public void fail(String message) { reply.send(error(rid, message)); }
+        };
+        new Thread(() -> {
+            try {
+                if ("deviceKeyCreate".equals(method)) {
+                    answer.ok(DeviceKeys.create(context, alias));
+                } else if ("deviceKeySign".equals(method)) {
+                    byte[] data;
+                    try { data = android.util.Base64.decode(args.optString("data"), android.util.Base64.NO_WRAP); }
+                    catch (IllegalArgumentException e) { answer.fail("bad data"); return; }
+                    String reason = args.optString("reason", "Unlock");
+                    if (reason.length() > 100) reason = reason.substring(0, 100);
+                    if (!(context instanceof android.app.Activity)) { answer.fail("no activity"); return; }
+                    DeviceKeys.sign((android.app.Activity) context, alias, data, reason, answer);
+                } else if ("deviceKeyRemove".equals(method)) {
+                    DeviceKeys.remove(alias);
+                    answer.ok(null);
+                } else {
+                    answer.fail("unknown method");
+                }
+            } catch (Exception e) {
+                answer.fail("failed");
+            }
+        }, "hiveop-device-keys").start();
     }
 
     private static String error(int id, String message) {

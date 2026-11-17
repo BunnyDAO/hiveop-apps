@@ -10,7 +10,7 @@ import { PUSH_BRIDGE_JS } from './pushBridge.ts';
 
 export type Platform = 'ios' | 'android';
 
-export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in'];
+export const BRIDGE_CAPABILITIES: readonly string[] = ['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in', 'device-keys'];
 
 export interface Bridge {
   version: string;
@@ -108,6 +108,7 @@ export function buildBridgeScript(opts: { siteOrigin: string; version: string; p
       });
     };
   }
+  ${DEVICE_KEYS_MEMBERS}
   var more = pushMembers(window, caps, ${platform});
   for (var k in more) members[k] = more[k];
   var bridge = Object.freeze(members);
@@ -171,3 +172,43 @@ function authBounceMembers(platform: Platform): string {
     };
   }`;
 }
+
+/**
+ * ryc-09 (site PRD reach-your-computer D9): keys in the Secure Enclave / Android Keystore. Two
+ * fixed aliases, enforced here AND natively: `device` (signs without a prompt, this device only)
+ * and `unlock` (every signature needs Face ID / Touch ID / fingerprint). The page gets public keys
+ * and DER signatures, never a private key. `data` is base64, at most 4 KB decoded.
+ */
+const DEVICE_KEYS_MEMBERS = `if (caps.indexOf("device-keys") !== -1) {
+    var aliasOf = function (o) {
+      var a = o && o.alias;
+      if (a !== "device" && a !== "unlock") throw new Error("unknown key alias");
+      return a;
+    };
+    var str = function (v, name) {
+      if (typeof v !== "string" || v === "") throw new Error("bad " + name + " from the app");
+      return v;
+    };
+    members.deviceKeys = Object.freeze({
+      available: function () {
+        return call("deviceKeyAvailable").then(function (r) { return !!r && r.available === true; }, function () { return false; });
+      },
+      create: function (o) {
+        try { var a = aliasOf(o); } catch (e) { return Promise.reject(e); }
+        return call("deviceKeyCreate", { alias: a }).then(function (r) { return { publicKey: str(r && r.publicKey, "public key") }; });
+      },
+      sign: function (o) {
+        try {
+          var a = aliasOf(o);
+          var data = o.data, reason = o.reason;
+          if (typeof data !== "string" || data.length === 0 || data.length > 5464 || !/^[A-Za-z0-9+\\/]+={0,2}$/.test(data)) throw new Error("data must be base64, at most 4 KB");
+          if (typeof reason !== "string" || reason.length > 100) throw new Error("bad reason");
+        } catch (e) { return Promise.reject(e); }
+        return call("deviceKeySign", { alias: a, data: data, reason: reason }).then(function (r) { return { sig: str(r && r.sig, "signature") }; });
+      },
+      remove: function (o) {
+        try { var a = aliasOf(o); } catch (e) { return Promise.reject(e); }
+        return call("deviceKeyRemove", { alias: a }).then(function () {});
+      }
+    });
+  }`;

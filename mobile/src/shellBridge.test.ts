@@ -30,7 +30,7 @@ describe('buildBridge', () => {
     expect(b.has(undefined as unknown as string)).toBe(false);
   });
   it('launch capabilities include open-sheet, auth-bounce and storefront', () => {
-    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in']);
+    expect(BRIDGE_CAPABILITIES).toEqual(['open-sheet', 'auth-bounce', 'storefront', 'push', 'open-settings', 'apple-sign-in', 'device-keys']);
   });
 });
 
@@ -291,5 +291,71 @@ describe('apple-sign-in capability (ph-06)', () => {
     void app.bounce('apple');
     expect(JSON.parse(posted[0]).provider).toBe('apple');
     await expect(app.bounce('twitter')).rejects.toThrow('unknown provider');
+  });
+});
+
+describe('device-keys capability (ryc-09)', () => {
+  type Sent = { m: string; a: any };
+  const ios = (reply: (m: Sent) => unknown) => {
+    const sent: Sent[] = [];
+    const extra = { webkit: { messageHandlers: { hiveop: { postMessage: (m: Sent) => { sent.push(m); return Promise.resolve(reply(m)); } } } } };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.2.0', platform: 'ios' });
+    return { app: (vm(script, SITE, extra) as any).hiveopApp, sent };
+  };
+  const android = (reply: (m: any) => { ok: boolean; value?: unknown; error?: string }) => {
+    const sent: any[] = [];
+    const channel: any = {
+      onmessage: null as null | ((e: { data: string }) => void),
+      postMessage(json: string) {
+        const m = JSON.parse(json);
+        sent.push(m);
+        queueMicrotask(() => channel.onmessage?.({ data: JSON.stringify({ id: m.id, ...reply(m) }) }));
+      },
+    };
+    const script = buildBridgeScript({ siteOrigin: SITE, version: '0.2.0', platform: 'android' });
+    return { app: (vm(script, SITE, { hiveopNative: channel }) as any).hiveopApp, sent };
+  };
+
+  it('is advertised on both platforms with a frozen deviceKeys member', () => {
+    for (const { app } of [ios(() => null), android(() => ({ ok: true }))]) {
+      expect(app.has('device-keys')).toBe(true);
+      expect(Object.isFrozen(app.deviceKeys)).toBe(true);
+    }
+  });
+
+  it('iOS: create / sign / remove / available go to the native channel with the fixed aliases', async () => {
+    const { app, sent } = ios((m) => (m.m === 'deviceKeyCreate' ? { publicKey: 'PUB' } : m.m === 'deviceKeySign' ? { sig: 'SIG' } : m.m === 'deviceKeyAvailable' ? { available: true } : null));
+    await expect(app.deviceKeys.available()).resolves.toBe(true);
+    await expect(app.deviceKeys.create({ alias: 'unlock' })).resolves.toEqual({ publicKey: 'PUB' });
+    await expect(app.deviceKeys.sign({ alias: 'device', data: 'AAAA', reason: 'Unlock to open' })).resolves.toEqual({ sig: 'SIG' });
+    await app.deviceKeys.remove({ alias: 'unlock' });
+    expect(sent).toEqual([
+      { m: 'deviceKeyAvailable', a: null },
+      { m: 'deviceKeyCreate', a: { alias: 'unlock' } },
+      { m: 'deviceKeySign', a: { alias: 'device', data: 'AAAA', reason: 'Unlock to open' } },
+      { m: 'deviceKeyRemove', a: { alias: 'unlock' } },
+    ]);
+  });
+
+  it('Android: same calls, correlated by id; native errors reject', async () => {
+    const { app, sent } = android((m) => (m.m === 'deviceKeySign' ? { ok: false, error: 'cancelled' } : { ok: true, value: { publicKey: 'PUB' } }));
+    await expect(app.deviceKeys.create({ alias: 'device' })).resolves.toEqual({ publicKey: 'PUB' });
+    await expect(app.deviceKeys.sign({ alias: 'unlock', data: 'AAAA', reason: 'x' })).rejects.toThrow(/cancelled/);
+    expect(sent.map((m) => m.m)).toEqual(['deviceKeyCreate', 'deviceKeySign']);
+  });
+
+  it('refuses unknown aliases and malformed input in the page, before native', async () => {
+    const { app, sent } = ios(() => ({ publicKey: 'PUB' }));
+    await expect(app.deviceKeys.create({ alias: 'other' })).rejects.toThrow(/alias/);
+    await expect(app.deviceKeys.sign({ alias: 'device', data: 5, reason: 'x' })).rejects.toThrow();
+    await expect(app.deviceKeys.sign({ alias: 'device', data: 'not base64!', reason: 'x' })).rejects.toThrow();
+    await expect(app.deviceKeys.sign({ alias: 'device', data: 'A'.repeat(8192), reason: 'x' })).rejects.toThrow();
+    expect(sent).toEqual([]);
+  });
+
+  it('a malformed native answer rejects; available() is false unless exactly true', async () => {
+    const { app } = ios((m) => (m.m === 'deviceKeyAvailable' ? { available: 'yes' } : { publicKey: 5 }));
+    await expect(app.deviceKeys.create({ alias: 'device' })).rejects.toThrow();
+    await expect(app.deviceKeys.available()).resolves.toBe(false);
   });
 });

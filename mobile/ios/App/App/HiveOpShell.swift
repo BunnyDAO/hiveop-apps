@@ -4,6 +4,8 @@ import SafariServices
 import StoreKit
 import UserNotifications
 import Capacitor
+import LocalAuthentication
+import Security
 
 /// Mirror of src/navPolicy.ts `decide`, fed by public/hiveop-shell.json (written by `npm run prepare`).
 enum NavDecision { case inApp, sheet, systemBrowser, deny }
@@ -144,9 +146,129 @@ final class HiveOpChannel: NSObject, WKScriptMessageHandlerWithReply {
                     replyHandler(ok ? NSNull() : nil, ok ? nil : "could not open")
                 }
             }
+        case "deviceKeyAvailable":
+            // ryc-09: a Secure Enclave key behind Face ID / Touch ID can be made here.
+            replyHandler(["available": DeviceKeys.available()], nil)
+        case "deviceKeyCreate", "deviceKeySign", "deviceKeyRemove":
+            guard let args = body["a"] as? [String: Any], let alias = args["alias"] as? String,
+                  DeviceKeys.aliases.contains(alias) else {
+                replyHandler(nil, "bad request")
+                return
+            }
+            // Off the main thread: signing with the unlock key blocks while Face ID shows.
+            DispatchQueue.global(qos: .userInitiated).async {
+                let reply: (Any?, String?) -> Void = { v, e in DispatchQueue.main.async { replyHandler(v, e) } }
+                do {
+                    switch method {
+                    case "deviceKeyCreate":
+                        let pub = try DeviceKeys.create(alias)
+                        reply(["publicKey": pub.base64EncodedString()], nil)
+                    case "deviceKeySign":
+                        guard let b64 = args["data"] as? String, let data = Data(base64Encoded: b64),
+                              !data.isEmpty, data.count <= DeviceKeys.maxData else {
+                            reply(nil, "bad data")
+                            return
+                        }
+                        let reason = String(((args["reason"] as? String) ?? "Unlock").prefix(100))
+                        let sig = try DeviceKeys.sign(alias, data: data, reason: reason)
+                        reply(["sig": sig.base64EncodedString()], nil)
+                    default:
+                        DeviceKeys.remove(alias)
+                        reply(NSNull(), nil)
+                    }
+                } catch {
+                    reply(nil, (error as? DeviceKeyError)?.message ?? "failed")
+                }
+            }
         default:
             replyHandler(nil, "unknown method")
         }
+    }
+}
+
+struct DeviceKeyError: Error { let message: String }
+
+/// ryc-09 (site PRD reach-your-computer D9): P-256 keys in the Secure Enclave, for the site's
+/// "Reach your computer" viewer. Two fixed aliases: `device` (signs without a prompt) and `unlock`
+/// (every signature needs Face ID / Touch ID; void when biometrics change). Private keys never
+/// leave the Secure Enclave; the page gets the raw public point and DER signatures.
+/// Checked standalone by scripts/check-device-keys-swift.sh.
+enum DeviceKeys {
+    static let aliases: Set<String> = ["device", "unlock"]
+    static let maxData = 4096
+
+    private static func tag(_ alias: String) -> Data { Data("io.hiveop.app.ryc.\(alias)".utf8) }
+
+    static func available() -> Bool {
+        var err: NSError?
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &err)
+    }
+
+    private static func find(_ alias: String, context: LAContext? = nil) -> SecKey? {
+        var q: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: tag(alias),
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecReturnRef as String: true,
+        ]
+        if let context = context { q[kSecUseAuthenticationContext as String] = context }
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess, let found = item,
+              CFGetTypeID(found) == SecKeyGetTypeID() else { return nil }
+        return (found as! SecKey)
+    }
+
+    /// The raw uncompressed public point (65 bytes), making the key on first use.
+    static func create(_ alias: String) throws -> Data {
+        guard aliases.contains(alias) else { throw DeviceKeyError(message: "unknown alias") }
+        if let key = find(alias) { return try publicRaw(key) }
+        if alias == "unlock" && !available() { throw DeviceKeyError(message: "biometrics unavailable") }
+        var flags: SecAccessControlCreateFlags = [.privateKeyUsage]
+        if alias == "unlock" { flags.insert(.biometryCurrentSet) }
+        var cfErr: Unmanaged<CFError>?
+        guard let access = SecAccessControlCreateWithFlags(nil, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, flags, &cfErr) else {
+            throw DeviceKeyError(message: "access control failed")
+        }
+        let attrs: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+            kSecPrivateKeyAttrs as String: [
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: tag(alias),
+                kSecAttrAccessControl as String: access,
+            ] as [String: Any],
+        ]
+        guard let key = SecKeyCreateRandomKey(attrs as CFDictionary, &cfErr) else {
+            throw DeviceKeyError(message: "no Secure Enclave key")
+        }
+        return try publicRaw(key)
+    }
+
+    private static func publicRaw(_ key: SecKey) throws -> Data {
+        guard let pub = SecKeyCopyPublicKey(key),
+              let raw = SecKeyCopyExternalRepresentation(pub, nil) as Data?, raw.count == 65, raw.first == 0x04 else {
+            throw DeviceKeyError(message: "bad public key")
+        }
+        return raw
+    }
+
+    /// ECDSA P-256 SHA-256 over `data`, DER. For `unlock` this shows Face ID with `reason`.
+    static func sign(_ alias: String, data: Data, reason: String) throws -> Data {
+        guard aliases.contains(alias), data.count <= maxData else { throw DeviceKeyError(message: "bad request") }
+        let context = LAContext()
+        context.localizedReason = reason
+        guard let key = find(alias, context: context) else { throw DeviceKeyError(message: "no key") }
+        var cfErr: Unmanaged<CFError>?
+        guard let sig = SecKeyCreateSignature(key, .ecdsaSignatureMessageX962SHA256, data as CFData, &cfErr) as Data? else {
+            throw DeviceKeyError(message: "cancelled")
+        }
+        return sig
+    }
+
+    static func remove(_ alias: String) {
+        let q: [String: Any] = [kSecClass as String: kSecClassKey, kSecAttrApplicationTag as String: tag(alias)]
+        SecItemDelete(q as CFDictionary)
     }
 }
 

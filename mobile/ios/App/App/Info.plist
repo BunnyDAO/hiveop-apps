@@ -28,6 +28,8 @@
 	<string>HiveOp uses the microphone for dictation and voice.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>HiveOp uses the camera for photos you choose to share.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>HiveOp uses Face ID to unlock your computer's terminals.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HiveOp lets you pick photos to upload.</string>
 	<key>LSRequiresIPhoneOS</key>

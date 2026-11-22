@@ -67,6 +67,35 @@ export function parseLatestRelease(json: unknown): ReleaseInfo | null {
   return { version: r.tag_name.replace(/^v/, ''), url };
 }
 
+/** electron-builder's metadata file for each platform; its `version` is what that platform's download actually is. */
+export function platformMetaName(platform: NodeJS.Platform): string | null {
+  if (platform === 'darwin') return 'latest-mac.yml';
+  if (platform === 'linux') return 'latest-linux.yml';
+  if (platform === 'win32') return 'latest.yml';
+  return null;
+}
+
+/** URL of this platform's metadata file among the release's assets, or null if it has none. */
+export function platformMetaUrl(json: unknown, platform: NodeJS.Platform): string | null {
+  const name = platformMetaName(platform);
+  const assets = json && typeof json === 'object' ? (json as Record<string, unknown>).assets : null;
+  if (!name || !Array.isArray(assets)) return null;
+  for (const a of assets) {
+    if (!a || typeof a !== 'object') continue;
+    const r = a as Record<string, unknown>;
+    if (r.name === name && typeof r.browser_download_url === 'string' && r.browser_download_url.startsWith('https://')) {
+      return r.browser_download_url;
+    }
+  }
+  return null;
+}
+
+/** The top-level `version:` of a latest-*.yml, or null. */
+export function parseMetaVersion(yml: string): string | null {
+  const m = /^version:\s*['"]?([^\s'"#]+)['"]?\s*$/m.exec(yml);
+  return m && parse(m[1]!) ? m[1]! : null;
+}
+
 export type UpdateMode = 'auto' | 'notify' | 'off';
 
 /** Windows (NSIS) and Linux AppImage self-update; unsigned mac and deb can only point at the download. */

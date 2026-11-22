@@ -4,6 +4,8 @@ import {
   isNewer,
   latestReleaseFeed,
   parseLatestRelease,
+  parseMetaVersion,
+  platformMetaUrl,
   updateMode,
   updatesEnabled,
   updateMenuItem,
@@ -117,4 +119,36 @@ describe('updateMenuItem', () => {
 
 it('checks daily', () => {
   expect(CHECK_INTERVAL_MS).toBe(24 * 60 * 60 * 1000);
+});
+
+describe('per-platform release metadata', () => {
+  const rel = {
+    tag_name: 'v0.1.4',
+    assets: [
+      { name: 'latest-mac.yml', browser_download_url: 'https://github.com/x/releases/download/v0.1.4/latest-mac.yml' },
+      { name: 'latest-linux.yml', browser_download_url: 'https://github.com/x/releases/download/v0.1.4/latest-linux.yml' },
+      { name: 'latest.yml', browser_download_url: 'https://github.com/x/releases/download/v0.1.4/latest.yml' },
+    ],
+  };
+  it('picks each platform its own yml', () => {
+    expect(platformMetaUrl(rel, 'linux')).toMatch(/latest-linux\.yml$/);
+    expect(platformMetaUrl(rel, 'darwin')).toMatch(/latest-mac\.yml$/);
+    expect(platformMetaUrl(rel, 'win32')).toMatch(/\/latest\.yml$/);
+  });
+  it('gives null when the asset is absent, non-https or the platform is unknown', () => {
+    expect(platformMetaUrl({ tag_name: 'v1', assets: [] }, 'linux')).toBeNull();
+    expect(platformMetaUrl({ assets: [{ name: 'latest-linux.yml', browser_download_url: 'http://x' }] }, 'linux')).toBeNull();
+    expect(platformMetaUrl(rel, 'freebsd')).toBeNull();
+    expect(platformMetaUrl(null, 'linux')).toBeNull();
+  });
+  it('reads the yml version, so a carried-over 0.1.3 linux build is not an update to a 0.1.3 install', () => {
+    const linux = parseMetaVersion('version: 0.1.3\nfiles:\n  - url: HiveOp-linux-amd64.deb\n');
+    const mac = parseMetaVersion("version: '0.1.4'\nfiles:\n");
+    expect(isNewer(linux!, '0.1.3')).toBe(false);
+    expect(isNewer(mac!, '0.1.3')).toBe(true);
+  });
+  it('rejects a yml without a usable version', () => {
+    expect(parseMetaVersion('files:\n  - url: a\n')).toBeNull();
+    expect(parseMetaVersion('version: banana\n')).toBeNull();
+  });
 });

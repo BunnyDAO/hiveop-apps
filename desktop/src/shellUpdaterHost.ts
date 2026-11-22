@@ -6,6 +6,8 @@ import {
   isNewer,
   latestReleaseFeed,
   parseLatestRelease,
+  parseMetaVersion,
+  platformMetaUrl,
   updateMode,
   updatesEnabled,
   type UpdateState,
@@ -33,8 +35,22 @@ export function createShellUpdater(deps: ShellUpdaterDeps): ShellUpdater {
     try {
       const res = await net.fetch(latestReleaseFeed(gate.feed), { headers: { accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
       if (!res.ok) return;
-      const rel = parseLatestRelease(await res.json());
-      if (rel && isNewer(rel.version, app.getVersion())) deps.onChange({ kind: 'available', version: rel.version, url: rel.url });
+      const json: unknown = await res.json();
+      const rel = parseLatestRelease(json);
+      if (!rel) return;
+      // The tag is the newest release of ANY platform. Trust this platform's own
+      // latest-*.yml when the release carries one; fall back to the tag if it can't be read.
+      let version = rel.version;
+      const metaUrl = platformMetaUrl(json, process.platform);
+      if (metaUrl) {
+        try {
+          const m = await net.fetch(metaUrl, { signal: AbortSignal.timeout(15000) });
+          if (m.ok) version = parseMetaVersion(await m.text()) ?? version;
+        } catch {
+          /* keep the tag version */
+        }
+      }
+      if (isNewer(version, app.getVersion())) deps.onChange({ kind: 'available', version, url: rel.url });
     } catch {
       /* offline or rate limited: try again tomorrow */
     }

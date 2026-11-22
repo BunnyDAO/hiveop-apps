@@ -26,18 +26,24 @@ mac:
   target:
     - target: dmg
       arch: universal
-  # Ad-hoc signed ("-"): no Apple account, but the bundle is sealed, so macOS can
-  # remember the mic grant (unsigned, it asked again every time). An update still
-  # re-asks once. To sign properly: set identity to the Developer ID, CSC_LINK/
-  # CSC_KEY_PASSWORD, and flip hardenedRuntime/notarize below (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID).
-  identity: "-"
-  hardenedRuntime: false
+  # Developer ID signed + notarized (Wenrwa LLC). Signing finds the identity in the login keychain;
+  # notarization reads APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER (App Store Connect API key):
+  #   set -a; . ~/.hiveop-keys/devid/notarize.env; set +a; npm run dist:mac
+  # scripts/notarize-dmg.sh then notarizes + staples the dmg itself and refreshes its blockmap/yml.
+  # A stable Team ID means macOS keeps the mic grant across updates (ad-hoc re-asked every time).
+  identity: "Wenrwa LLC (ATG843LDGZ)"
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
   gatekeeperAssess: false
-  notarize: false
+  notarize: true
+  extendInfo:
+    NSMicrophoneUsageDescription: HiveOp uses the microphone for voice dictation.
+    NSCameraUsageDescription: HiveOp uses the camera when a page you open asks for it.
   x64ArchFiles: "**/*"   # universal merge: tolerate identical files
 
 dmg:
-  sign: false
+  sign: true
   artifactName: HiveOp-mac-universal.${ext}
 
 win:
